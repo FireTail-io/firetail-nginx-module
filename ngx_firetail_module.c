@@ -121,18 +121,17 @@ ngx_http_firetail_header_filter(ngx_http_request_t *r)
   // if there are more than 10 arrays in memory, run
   // some stuff, like batching them up, convert toi json newlines using json-c library
   // and sending them over to backend with libcurl
-  // (NOTE: commented out as WIP
+  // (NOTE: commented out as WIP)
   //if (sizeof(kv) > 10){
     for(i = 0; i < sizeof(kv); i++) {
       if (kv[i].key != NULL) {
         printf("key: %s, value: %s\n", kv[i].key, kv[i].value);
       }
     }
+    // don't forget to free up memory, else we will have memory leaks or possibly some security issue
+    free(kv);
   //}
   
-  // don't forget to free up memory, else we will have memory leaks or possibly some security issue
-  free(kv);
-
   r->headers_out.content_length_n += strlen((char *)test_filter);
 
   return ngx_http_next_header_filter(r);
