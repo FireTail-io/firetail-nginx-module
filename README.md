@@ -14,7 +14,7 @@ Example if you want to enable firetail
       location / {
           root   html;
           index  index.html index.htm;
-          enable_firetail "apikey" "url";
+          enable_firetail "apikey" "firetail url";
       }
  }
 ```
