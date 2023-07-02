@@ -20,7 +20,7 @@ static ngx_int_t ngx_http_firetail_init(ngx_conf_t *cf);
 static ngx_command_t  ngx_http_firetail_commands[] = {
 
   { ngx_string("enable_firetail"),
-  NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
+  NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE2,
   ngx_http_firetail,
   0,
   0,
