@@ -132,10 +132,12 @@ ngx_http_firetail_header_filter(ngx_http_request_t *r)
   //batched_headers->next = (batched_headers_node_t batched_headers_node_t));
   batched_headers->next = NULL;
 
-  // if there are more than 10 arrays in memory, run
-  // some stuff, like batching them up, convert toi json newlines using json-c library
-  // and sending them over to backend with libcurl
-  
+  // below code is for http client
+  unsigned char *protocol = r->http_protocol.data;
+  unsigned char *method_name = r->method_name.data;
+  unsigned char *ip_address = r->connection->addr_text.data;
+  unsigned char *url = r->unparsed_uri.data;
+
   // initialize json object
   json_object *json_obj = json_object_new_object();
 
@@ -151,22 +153,39 @@ ngx_http_firetail_header_filter(ngx_http_request_t *r)
   json_object *requests = json_object_new_object();
 
   // request http protocol
-  json_object *http_protocol = json_object_new_string("HTTP/1.1");
+  json_object *http_protocol = json_object_new_string((char *)protocol);
   json_object_object_add(requests, "httpProtocol", http_protocol);
 
-  // request
+  // request method
+  json_object *method = json_object_new_string((char *)method_name);
+  json_object_object_add(requests, "method", method);
+
+  // request IP
+  json_object *ip = json_object_new_string((char *)ip_address);
+  json_object_object_add(requests, "ip", ip);
+
+  // request url
+  json_object *url_path = json_object_new_string((char *)url);
+  json_object_object_add(requests, "url", url_path);
+
+  // add request object into request json key
   json_object_object_add(json_obj, "request", requests);
-  
+
   // send data to firetail backend
   CURL *curlHandler = curl_easy_init();
 
   if (curlHandler) {
+    // header stuff
+    struct curl_slist *hs=NULL;
+    hs = curl_slist_append(hs, "Content-Type: application/nd-json");
+
     // just setup a simple webserver that binds to localhost:3000 to debug the json payload
     // this url should point to firetail backend after debugging this code
     curl_easy_setopt(curlHandler, CURLOPT_URL, "http://localhost:3000");
     curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
     curl_easy_setopt(curlHandler, CURLOPT_POSTFIELDS,  
               json_object_to_json_string(json_obj));
+    curl_easy_setopt(curlHandler, CURLOPT_HTTPHEADER, hs);
 
     CURLcode res = curl_easy_perform(curlHandler);
 
