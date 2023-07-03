@@ -1,6 +1,8 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <json-c/json.h>
+#include <curl/curl.h>
 
 u_char *test_filter = (u_char *) "<audio controls loop autoplay src=\"https://upload.wikimedia.org/wikipedia/commons/8/85/Holst-_mars.ogg\"></audio>";
 
@@ -8,6 +10,11 @@ struct headers_in {
   unsigned char* key;
   unsigned char* value;
 };
+
+typedef struct batched_headers {
+  struct headers_in* value;
+  struct node* next;
+} batched_headers_node_t;
 
 static char *
 ngx_http_firetail(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
@@ -62,12 +69,8 @@ ngx_module_t  ngx_firetail_module = {
   NGX_MODULE_V1_PADDING
 };
 
-
-
-
 static ngx_http_output_header_filter_pt ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt   ngx_http_next_body_filter;
-
 
 static ngx_int_t
 ngx_http_firetail_header_filter(ngx_http_request_t *r)
@@ -86,7 +89,14 @@ ngx_http_firetail_header_filter(ngx_http_request_t *r)
    */
   struct headers_in *kv = malloc(sizeof(struct headers_in) * sizeof(h));
   if (kv == NULL) {
-      perror("Malloc");
+      perror("malloc error");
+      exit(EXIT_FAILURE);
+  }
+
+  batched_headers_node_t* batched_headers = NULL;
+  batched_headers = (batched_headers_node_t *) malloc(sizeof(batched_headers_node_t));
+  if (batched_headers == NULL) {
+      perror("malloc error");
       exit(EXIT_FAILURE);
   }
  
@@ -118,19 +128,63 @@ ngx_http_firetail_header_filter(ngx_http_request_t *r)
     }
   }
 
+  batched_headers->value = kv;
+  //batched_headers->next = (batched_headers_node_t batched_headers_node_t));
+  batched_headers->next = NULL;
+
   // if there are more than 10 arrays in memory, run
   // some stuff, like batching them up, convert toi json newlines using json-c library
   // and sending them over to backend with libcurl
-  // (NOTE: commented out as WIP)
-  //if (sizeof(kv) > 10){
-    for(i = 0; i < sizeof(kv); i++) {
-      if (kv[i].key != NULL) {
-        printf("key: %s, value: %s\n", kv[i].key, kv[i].value);
-      }
+  
+  // initialize json object
+  json_object *json_obj = json_object_new_object();
+
+  // version
+  json_object *version = json_object_new_string("1.0.0-alpha");
+  json_object_object_add(json_obj, "version", version);
+
+  // current time
+  json_object *datetime = json_object_new_int(time(NULL));
+  json_object_object_add(json_obj, "dateCreated", datetime);
+
+  // initialize request object
+  json_object *requests = json_object_new_object();
+
+  // request http protocol
+  json_object *http_protocol = json_object_new_string("HTTP/1.1");
+  json_object_object_add(requests, "httpProtocol", http_protocol);
+
+  // request
+  json_object_object_add(json_obj, "request", requests);
+  
+  // send data to firetail backend
+  CURL *curlHandler = curl_easy_init();
+
+  if (curlHandler) {
+    // just setup a simple webserver that binds to localhost:3000 to debug the json payload
+    // this url should point to firetail backend after debugging this code
+    curl_easy_setopt(curlHandler, CURLOPT_URL, "http://localhost:3000");
+    curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
+    curl_easy_setopt(curlHandler, CURLOPT_POSTFIELDS,  
+              json_object_to_json_string(json_obj));
+
+    CURLcode res = curl_easy_perform(curlHandler);
+
+    if(res != CURLE_OK)
+      fprintf(stderr, "CURL failed: %s\n",
+              curl_easy_strerror(res));
+
+    curl_easy_cleanup(curlHandler);
+    free(json_obj);
+  } 
+
+  for(i = 0; i < sizeof(kv); i++) {
+    if (kv[i].key != NULL) {
+      printf("key: %s, value: %s\n", kv[i].key, kv[i].value);
     }
-    // don't forget to free up memory, else we will have memory leaks or possibly some security issue
-    free(kv);
-  //}
+  }
+  // don't forget to free up memory, else we will have memory leaks or possibly some security issue
+  free(kv);
   
   r->headers_out.content_length_n += strlen((char *)test_filter);
 
