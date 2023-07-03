@@ -12,3 +12,5 @@ else
     HTTP_FILTER_MODULES="$HTTP_FILTER_MODULES ngx_firetail_module"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_firetail_module.c"
 fi
+
+CORE_LIBS="$CORE_LIBS -lcurl -ljson-c"
