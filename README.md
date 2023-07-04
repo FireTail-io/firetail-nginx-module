@@ -15,6 +15,8 @@ docker build -t firetail-nginx . --target firetail-nginx-dev -f dev/Dockerfile
 docker run -p 8080:80 firetail-nginx
 ```
 
+A [.clang-format](./.clang-format) is provided for use with [clang-format](https://clang.llvm.org/docs/ClangFormat.html), as well as a corresponding [.pre-commit-config.yaml](./.pre-commit-config.yaml).
+
 
 
 ## Compilation
