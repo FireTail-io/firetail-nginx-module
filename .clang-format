@@ -133,7 +133,6 @@ InsertNewlineAtEOF: false
 InsertTrailingCommas: None
 IntegerLiteralSeparator:
   Binary:          0
-  BinaryMinDigits: 0
   Decimal:         0
   Hex:             0
   HexMinDigits:    0
