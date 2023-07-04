@@ -135,7 +135,6 @@ IntegerLiteralSeparator:
   Binary:          0
   Decimal:         0
   Hex:             0
-  HexMinDigits:    0
 JavaScriptQuotes: Leave
 JavaScriptWrapImports: true
 KeepEmptyLinesAtTheStartOfBlocks: false
