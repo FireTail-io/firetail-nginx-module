@@ -15,7 +15,30 @@ docker build -t firetail-nginx . --target firetail-nginx-dev -f dev/Dockerfile
 docker run -p 8080:80 firetail-nginx
 ```
 
-A [.clang-format](./.clang-format) is provided for use with [clang-format](https://clang.llvm.org/docs/ClangFormat.html), as well as a corresponding [.pre-commit-config.yaml](./.pre-commit-config.yaml).
+
+
+### VSCode
+
+For local development with VSCode you'll probably want to download the nginx tarball matching the version you're developing for, and configure it:
+
+```bash
+curl -O http://nginx.org/download/nginx-1.24.0.tar.gz
+tar xvzf nginx-1.24.0.tar.gz
+cd nginx-1.24.0
+./configure
+```
+
+Then install VSCode's [Microsoft C/C++ Extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools). By default it should happily be finding your nginx headers. If it's not, go to its settings using the command `C/C++: Edit configurations (UI)` and add the following `includePath`:
+
+```
+${workspaceFolder}/**
+```
+
+You'll then need to install some of nginx's dependencies (`pcre2`), and the dependenceis of the firetail NGINX module itself (`curl` and `json-c`). You can use [vcpkg](https://vcpkg.io/) for this:
+
+```bash
+vcpkg install pcre2 curl json-c
+```
 
 
 
