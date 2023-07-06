@@ -26,3 +26,4 @@ COPY --from=build /tmp/nginx-${NGINX_VERSION}/objs/* /etc/nginx/modules/
 FROM firetail-nginx as firetail-nginx-dev
 COPY dev/nginx.conf /etc/nginx/nginx.conf
 COPY dev/index.html /usr/share/nginx/html/
+CMD ["nginx-debug", "-g", "daemon off;"]
