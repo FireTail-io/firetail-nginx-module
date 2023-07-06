@@ -97,13 +97,16 @@ static ngx_int_t ngx_http_firetail_request_body_filter(
     ctx->request_body = updated_request_body;
   }
 
-  fprintf(stderr, "Got a chain of size %ld. Total request body size: %ld\n",
-          new_request_body_parts_size, ctx->request_body_size);
+  fprintf(
+      stderr,
+      "Got a request body chain of size %ld. Total request body size: %ld\n",
+      new_request_body_parts_size, ctx->request_body_size);
 
   if (chain_contains_last_link) {
     fprintf(stderr, "Reached the end of the request body chain!\n");
     fprintf(stderr, "Request Body:\n%.*s\n", (int)ctx->request_body_size,
             ctx->request_body);
+    fprintf(stderr, "Request body size: %ld\n", ctx->request_body_size);
   }
 
   return ngx_http_next_request_body_filter(request, chain_head);
@@ -170,8 +173,10 @@ static ngx_int_t ngx_http_firetail_response_body_filter(
     ctx->response_body = updated_response_body;
   }
 
-  fprintf(stderr, "Got a chain of size %ld. Total response body size: %ld\n",
-          new_response_body_parts_size, ctx->response_body_size);
+  fprintf(
+      stderr,
+      "Got a response body chain of size %ld. Total response body size: %ld\n",
+      new_response_body_parts_size, ctx->response_body_size);
 
   // If it doesn't contain the last buffer of the response body, pass everything
   // onto the next filter - we do not care.
@@ -180,13 +185,9 @@ static ngx_int_t ngx_http_firetail_response_body_filter(
   }
 
   fprintf(stderr, "Reached the end of the response body chain!\n");
-
-  fprintf(stderr, "Request Body:\n%.*s\n", (int)ctx->request_body_size,
-          ctx->request_body);
   fprintf(stderr, "Response Body:\n%.*s\n", (int)ctx->response_body_size,
           ctx->response_body);
-  fprintf(stderr, "Request body size: %ld, response body size: %ld\n",
-          ctx->request_body_size, ctx->response_body_size);
+  fprintf(stderr, "Response body size: %ld\n", ctx->response_body_size);
 
   return ngx_http_next_body_filter(request, chain_head);
 }
