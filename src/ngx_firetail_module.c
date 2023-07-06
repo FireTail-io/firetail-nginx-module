@@ -9,28 +9,56 @@
 static ngx_http_output_header_filter_pt ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt ngx_http_next_body_filter;
 
-// This body filter prepends `firetail_message` to the response body.
+// This body filter just appends `firetail_message` to the response body.
 u_char *firetail_message = (u_char *) "<!-- This response body has been recorded by the Firetail NGINX Module :) -->";
-static ngx_int_t ngx_http_firetail_body_filter(ngx_http_request_t *r,
-                                               ngx_chain_t *in) {
-  ngx_buf_t *buf;
-  ngx_chain_t *link;
+static ngx_int_t ngx_http_firetail_body_filter(ngx_http_request_t *request,
+                                               ngx_chain_t *chain_head) {
+  // Find if the chain of buffers we've been given contains the last buffer of
+  // the response body
+  int chain_contains_last_buffer = 0;
+  ngx_chain_t *current_chain_link = chain_head;
+  for (;;) {
+    if (current_chain_link->buf->last_buf) {
+      chain_contains_last_buffer = 1;
+    }
+    if (current_chain_link->next == NULL) {
+      break;
+    }
+    current_chain_link = current_chain_link->next;
+  }
 
-  buf = ngx_calloc_buf(r->pool);
+  // If it doesn't contain the last buffer of the response body, pass everything
+  // onto the next filter - we do not care.
+  if (!chain_contains_last_buffer) {
+    return ngx_http_next_body_filter(request, chain_head);
+  }
 
-  buf->pos = firetail_message;
-  buf->last = buf->pos + strlen((char *)firetail_message);
-  buf->start = buf->pos;
-  buf->end = buf->last;
-  buf->last_buf = 0;
-  buf->memory = 1;
+  // Create a new buffer for the data we want to append to the end of the
+  // response body
+  ngx_buf_t *my_buffer = ngx_calloc_buf(request->pool);
+  if (my_buffer == NULL) {
+    return NGX_ERROR;
+  }
+  my_buffer->pos = firetail_message;
+  my_buffer->last = my_buffer->pos + strlen((char *)firetail_message);
+  my_buffer->memory = 1;    // The buffer is readonly
+  my_buffer->last_buf = 1;  // There will be no more buffers in the chain
 
-  link = ngx_alloc_chain_link(r->pool);
+  // Create a new chain link to contain our extra data that we can then add to
+  // the chain
+  ngx_chain_t *my_extra_chain_link = ngx_alloc_chain_link(request->pool);
+  if (my_extra_chain_link == NULL) {
+    return NGX_ERROR;
+  }
+  my_extra_chain_link->buf = my_buffer;
+  my_extra_chain_link->next = NULL;
 
-  link->buf = buf;
-  link->next = in;
+  // Add it to the end of the current chain link & mark the current chain link's
+  // end as being no longer the last buf
+  current_chain_link->next = my_extra_chain_link;
+  current_chain_link->buf->last_buf = 0;
 
-  return ngx_http_next_body_filter(r, link);
+  return ngx_http_next_body_filter(request, chain_head);
 }
 
 // This header filter just updates the content length header after the appending
