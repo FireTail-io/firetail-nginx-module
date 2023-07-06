@@ -1,8 +1,8 @@
-#include <curl/curl.h>
-#include <json-c/json.h>
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
+#include <curl/curl.h>
+#include <json-c/json.h>
 
 // The header and body filters of the filter that was added just before ours.
 // These make up part of a singly linked list of header and body filters.
