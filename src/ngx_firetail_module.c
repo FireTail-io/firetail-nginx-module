@@ -9,75 +9,191 @@
 // These make up part of a singly linked list of header and body filters.
 static ngx_http_output_header_filter_pt ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt ngx_http_next_body_filter;
+static ngx_http_request_body_filter_pt ngx_http_next_request_body_filter;
 
-// This body filter just appends `firetail_message` to the response body.
-u_char *firetail_message = (u_char *) "<!-- This response body has been recorded by the Firetail NGINX Module :) -->";
-static ngx_int_t ngx_http_firetail_body_filter(ngx_http_request_t *request,
-                                               ngx_chain_t *chain_head) {
-  // Determine the length of the request body chain we've been given
-  long chain_size = 0;
+// This struct will hold all of the data we will send to Firetail about the
+// request & response bodies & headers
+typedef struct {
+  long request_body_size;
+  long response_body_size;
+  u_char *request_body;
+  u_char *response_body;
+} ngx_http_firetail_filter_ctx_t;
+
+// This utility function will allow us to get the filter ctx whenever we need
+// it, and creates it if it doesn't already exist
+static ngx_http_firetail_filter_ctx_t *get_firetail_filter_ctx(
+    ngx_http_request_t *request) {
+  ngx_http_firetail_filter_ctx_t *ctx =
+      ngx_http_get_module_ctx(request, ngx_firetail_module);
+  if (ctx == NULL) {
+    ctx = ngx_pcalloc(request->pool, sizeof(ngx_http_firetail_filter_ctx_t));
+    if (ctx == NULL) {
+      return NULL;
+    }
+    ngx_http_set_ctx(request, ctx, ngx_firetail_module);
+  }
+  return ctx;
+}
+
+static ngx_int_t ngx_http_firetail_request_body_filter(
+    ngx_http_request_t *request, ngx_chain_t *chain_head) {
+  // Get our context so we can store the request body data
+  ngx_http_firetail_filter_ctx_t *ctx = get_firetail_filter_ctx(request);
+  if (ctx == NULL) {
+    return NGX_ERROR;
+  }
+
+  // Determine the length of the request body chain we've been given, and if the
+  // chain contains the last link
+  int chain_contains_last_link = 0;
+  long new_request_body_parts_size = 0;
   ngx_chain_t *current_chain_link = chain_head;
   for (;;) {
-    chain_size += current_chain_link->buf->last - current_chain_link->buf->pos;
-    if (current_chain_link->next == NULL) {
-      break;
-    }
-    current_chain_link = current_chain_link->next;
-  }
-  fprintf(stderr, "Got a chain of size %ld\n", chain_size);
-
-  // Find if the chain of buffers we've been given contains the last buffer of
-  // the response body
-  int chain_contains_last_buffer = 0;
-  current_chain_link = chain_head;
-  for (;;) {
+    new_request_body_parts_size +=
+        current_chain_link->buf->last - current_chain_link->buf->pos;
     if (current_chain_link->buf->last_buf) {
-      chain_contains_last_buffer = 1;
+      chain_contains_last_link = 1;
     }
     if (current_chain_link->next == NULL) {
       break;
     }
     current_chain_link = current_chain_link->next;
   }
+
+  // If we read in more bytes from this chain then we need to create a new char*
+  // and place it in ctx containing the full body
+  if (new_request_body_parts_size > 0) {
+    // Take note of the request body size before and after adding the new chain
+    // & update it in our ctx
+    long old_request_body_size = ctx->request_body_size;
+    long new_request_body_size =
+        old_request_body_size + new_request_body_parts_size;
+    ctx->request_body_size = new_request_body_size;
+
+    // Create a new updated body
+    u_char *updated_request_body =
+        ngx_pcalloc(request->pool, new_request_body_size);
+
+    // Copy the body read so far into ctx into our new updated_request_body
+    u_char *updated_request_body_i = ngx_copy(
+        updated_request_body, ctx->request_body, old_request_body_size);
+
+    // Iterate over the chain again and copy all of the buffers over to our new
+    // request body char*
+    current_chain_link = chain_head;
+    for (;;) {
+      long buffer_length =
+          current_chain_link->buf->last - current_chain_link->buf->pos;
+      updated_request_body_i = ngx_copy(
+          updated_request_body_i, current_chain_link->buf->pos, buffer_length);
+      if (current_chain_link->next == NULL) {
+        break;
+      }
+      current_chain_link = current_chain_link->next;
+    }
+
+    // Update the ctx with the new updated body
+    ctx->request_body = updated_request_body;
+  }
+
+  fprintf(stderr, "Got a chain of size %ld. Total request body size: %ld\n",
+          new_request_body_parts_size, ctx->request_body_size);
+
+  if (chain_contains_last_link) {
+    fprintf(stderr, "Reached the end of the request body chain!\n");
+    fprintf(stderr, "Request Body:\n%.*s\n", (int)ctx->request_body_size,
+            ctx->request_body);
+  }
+
+  return ngx_http_next_request_body_filter(request, chain_head);
+}
+
+static ngx_int_t ngx_http_firetail_response_body_filter(
+    ngx_http_request_t *request, ngx_chain_t *chain_head) {
+  // Get our context so we can store the response body data
+  ngx_http_firetail_filter_ctx_t *ctx = get_firetail_filter_ctx(request);
+  if (ctx == NULL) {
+    return NGX_ERROR;
+  }
+
+  // Determine the length of the response body chain we've been given, and if
+  // the chain contains the last link
+  int chain_contains_last_link = 0;
+  long new_response_body_parts_size = 0;
+  ngx_chain_t *current_chain_link = chain_head;
+  for (;;) {
+    new_response_body_parts_size +=
+        current_chain_link->buf->last - current_chain_link->buf->pos;
+    if (current_chain_link->buf->last_buf) {
+      chain_contains_last_link = 1;
+    }
+    if (current_chain_link->next == NULL) {
+      break;
+    }
+    current_chain_link = current_chain_link->next;
+  }
+
+  // If we read in more bytes from this chain then we need to create a new char*
+  // and place it in ctx containing the full body
+  if (new_response_body_parts_size > 0) {
+    // Take note of the response body size before and after adding the new chain
+    // & update it in our ctx
+    long old_response_body_size = ctx->response_body_size;
+    long new_response_body_size =
+        old_response_body_size + new_response_body_parts_size;
+    ctx->response_body_size = new_response_body_size;
+
+    // Create a new updated body
+    u_char *updated_response_body =
+        ngx_pcalloc(request->pool, new_response_body_size);
+
+    // Copy the body read so far into ctx into our new updated_response_body
+    u_char *updated_response_body_i = ngx_copy(
+        updated_response_body, ctx->response_body, old_response_body_size);
+
+    // Iterate over the chain again and copy all of the buffers over to our new
+    // response body char*
+    current_chain_link = chain_head;
+    for (;;) {
+      long buffer_length =
+          current_chain_link->buf->last - current_chain_link->buf->pos;
+      updated_response_body_i = ngx_copy(
+          updated_response_body_i, current_chain_link->buf->pos, buffer_length);
+      if (current_chain_link->next == NULL) {
+        break;
+      }
+      current_chain_link = current_chain_link->next;
+    }
+
+    // Update the ctx with the new updated body
+    ctx->response_body = updated_response_body;
+  }
+
+  fprintf(stderr, "Got a chain of size %ld. Total response body size: %ld\n",
+          new_response_body_parts_size, ctx->response_body_size);
 
   // If it doesn't contain the last buffer of the response body, pass everything
   // onto the next filter - we do not care.
-  if (!chain_contains_last_buffer) {
+  if (!chain_contains_last_link) {
     return ngx_http_next_body_filter(request, chain_head);
   }
 
-  // Create a new buffer for the data we want to append to the end of the
-  // response body
-  ngx_buf_t *my_buffer = ngx_calloc_buf(request->pool);
-  if (my_buffer == NULL) {
-    return NGX_ERROR;
-  }
-  my_buffer->pos = firetail_message;
-  my_buffer->last = my_buffer->pos + strlen((char *)firetail_message);
-  my_buffer->memory = 1;    // The buffer is readonly
-  my_buffer->last_buf = 1;  // There will be no more buffers in the chain
+  fprintf(stderr, "Reached the end of the response body chain!\n");
 
-  // Create a new chain link to contain our extra data that we can then add to
-  // the chain
-  ngx_chain_t *my_extra_chain_link = ngx_alloc_chain_link(request->pool);
-  if (my_extra_chain_link == NULL) {
-    return NGX_ERROR;
-  }
-  my_extra_chain_link->buf = my_buffer;
-  my_extra_chain_link->next = NULL;
-
-  // Add it to the end of the current chain link & mark the current chain link's
-  // end as being no longer the last buf
-  current_chain_link->next = my_extra_chain_link;
-  current_chain_link->buf->last_buf = 0;
+  fprintf(stderr, "Request Body:\n%.*s\n", (int)ctx->request_body_size,
+          ctx->request_body);
+  fprintf(stderr, "Response Body:\n%.*s\n", (int)ctx->response_body_size,
+          ctx->response_body);
+  fprintf(stderr, "Request body size: %ld, response body size: %ld\n",
+          ctx->request_body_size, ctx->response_body_size);
 
   return ngx_http_next_body_filter(request, chain_head);
 }
 
-// This header filter just updates the content length header after the appending
-// of the `firetail_message`
+// TODO: Extract the headers and insert them into the
+// ngx_http_firetail_filter_ctx_t
 static ngx_int_t ngx_http_firetail_header_filter(ngx_http_request_t *r) {
-  r->headers_out.content_length_n += strlen((char *)firetail_message);
   return ngx_http_next_header_filter(r);
 }
 
@@ -106,8 +222,11 @@ static ngx_command_t ngx_http_firetail_commands[] = {
 // singly linked list here and making our own local references to the next
 // filter down the list from us
 static ngx_int_t ngx_http_firetail_init(ngx_conf_t *cf) {
+  ngx_http_next_request_body_filter = ngx_http_top_request_body_filter;
+  ngx_http_top_request_body_filter = ngx_http_firetail_request_body_filter;
+
   ngx_http_next_body_filter = ngx_http_top_body_filter;
-  ngx_http_top_body_filter = ngx_http_firetail_body_filter;
+  ngx_http_top_body_filter = ngx_http_firetail_response_body_filter;
 
   ngx_http_next_header_filter = ngx_http_top_header_filter;
   ngx_http_top_header_filter = ngx_http_firetail_header_filter;
