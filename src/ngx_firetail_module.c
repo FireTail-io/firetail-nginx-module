@@ -3,6 +3,7 @@
 #include <ngx_http.h>
 #include <curl/curl.h>
 #include <json-c/json.h>
+#include "ngx_firetail_module.h"
 
 // The header and body filters of the filter that was added just before ours.
 // These make up part of a singly linked list of header and body filters.
@@ -126,18 +127,3 @@ static ngx_http_module_t ngx_firetail_module_ctx = {
     NULL,                    // create location configuration
     NULL                     // merge location configuration
 };
-
-// This struct defines the Firetail NGINX module's hooks
-ngx_module_t ngx_firetail_module = {
-    NGX_MODULE_V1,
-    &ngx_firetail_module_ctx,   /* module context */
-    ngx_http_firetail_commands, /* module directives */
-    NGX_HTTP_MODULE,            /* module type */
-    NULL,                       /* init master */
-    NULL,                       /* init module */
-    NULL,                       /* init process */
-    NULL,                       /* init thread */
-    NULL,                       /* exit thread */
-    NULL,                       /* exit process */
-    NULL,                       /* exit master */
-    NGX_MODULE_V1_PADDING};
