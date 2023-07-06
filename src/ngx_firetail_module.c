@@ -13,10 +13,22 @@ static ngx_http_output_body_filter_pt ngx_http_next_body_filter;
 u_char *firetail_message = (u_char *) "<!-- This response body has been recorded by the Firetail NGINX Module :) -->";
 static ngx_int_t ngx_http_firetail_body_filter(ngx_http_request_t *request,
                                                ngx_chain_t *chain_head) {
+  // Determine the length of the request body chain we've been given
+  long chain_size = 0;
+  ngx_chain_t *current_chain_link = chain_head;
+  for (;;) {
+    chain_size += current_chain_link->buf->last - current_chain_link->buf->pos;
+    if (current_chain_link->next == NULL) {
+      break;
+    }
+    current_chain_link = current_chain_link->next;
+  }
+  fprintf(stderr, "Got a chain of size %ld\n", chain_size);
+
   // Find if the chain of buffers we've been given contains the last buffer of
   // the response body
   int chain_contains_last_buffer = 0;
-  ngx_chain_t *current_chain_link = chain_head;
+  current_chain_link = chain_head;
   for (;;) {
     if (current_chain_link->buf->last_buf) {
       chain_contains_last_buffer = 1;
