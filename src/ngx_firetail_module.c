@@ -7,9 +7,9 @@
 
 // The header and body filters of the filter that was added just before ours.
 // These make up part of a singly linked list of header and body filters.
-static ngx_http_output_header_filter_pt ngx_http_next_header_filter;
-static ngx_http_output_body_filter_pt ngx_http_next_body_filter;
-static ngx_http_request_body_filter_pt ngx_http_next_request_body_filter;
+static ngx_http_output_header_filter_pt kNextHeaderFilter;
+static ngx_http_output_body_filter_pt kNextResponseBodyFilter;
+static ngx_http_request_body_filter_pt kNextRequestBodyFilter;
 
 // This struct will hold all of the data we will send to Firetail about the
 // request & response bodies & headers
@@ -18,16 +18,16 @@ typedef struct {
   long response_body_size;
   u_char *request_body;
   u_char *response_body;
-} ngx_http_firetail_filter_ctx_t;
+} FiretailFilterContext;
 
 // This utility function will allow us to get the filter ctx whenever we need
 // it, and creates it if it doesn't already exist
-static ngx_http_firetail_filter_ctx_t *get_firetail_filter_ctx(
+static FiretailFilterContext *GetFiretailFilterContext(
     ngx_http_request_t *request) {
-  ngx_http_firetail_filter_ctx_t *ctx =
+  FiretailFilterContext *ctx =
       ngx_http_get_module_ctx(request, ngx_firetail_module);
   if (ctx == NULL) {
-    ctx = ngx_pcalloc(request->pool, sizeof(ngx_http_firetail_filter_ctx_t));
+    ctx = ngx_pcalloc(request->pool, sizeof(FiretailFilterContext));
     if (ctx == NULL) {
       return NULL;
     }
@@ -36,10 +36,10 @@ static ngx_http_firetail_filter_ctx_t *get_firetail_filter_ctx(
   return ctx;
 }
 
-static ngx_int_t ngx_http_firetail_request_body_filter(
-    ngx_http_request_t *request, ngx_chain_t *chain_head) {
+static ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
+                                           ngx_chain_t *chain_head) {
   // Get our context so we can store the request body data
-  ngx_http_firetail_filter_ctx_t *ctx = get_firetail_filter_ctx(request);
+  FiretailFilterContext *ctx = GetFiretailFilterContext(request);
   if (ctx == NULL) {
     return NGX_ERROR;
   }
@@ -109,13 +109,13 @@ static ngx_int_t ngx_http_firetail_request_body_filter(
     fprintf(stderr, "Request body size: %ld\n", ctx->request_body_size);
   }
 
-  return ngx_http_next_request_body_filter(request, chain_head);
+  return kNextRequestBodyFilter(request, chain_head);
 }
 
-static ngx_int_t ngx_http_firetail_response_body_filter(
-    ngx_http_request_t *request, ngx_chain_t *chain_head) {
+static ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
+                                            ngx_chain_t *chain_head) {
   // Get our context so we can store the response body data
-  ngx_http_firetail_filter_ctx_t *ctx = get_firetail_filter_ctx(request);
+  FiretailFilterContext *ctx = GetFiretailFilterContext(request);
   if (ctx == NULL) {
     return NGX_ERROR;
   }
@@ -181,7 +181,7 @@ static ngx_int_t ngx_http_firetail_response_body_filter(
   // If it doesn't contain the last buffer of the response body, pass everything
   // onto the next filter - we do not care.
   if (!chain_contains_last_link) {
-    return ngx_http_next_body_filter(request, chain_head);
+    return kNextResponseBodyFilter(request, chain_head);
   }
 
   fprintf(stderr, "Reached the end of the response body chain!\n");
@@ -189,18 +189,19 @@ static ngx_int_t ngx_http_firetail_response_body_filter(
           ctx->response_body);
   fprintf(stderr, "Response body size: %ld\n", ctx->response_body_size);
 
-  return ngx_http_next_body_filter(request, chain_head);
+  return kNextResponseBodyFilter(request, chain_head);
 }
 
 // TODO: Extract the headers and insert them into the
-// ngx_http_firetail_filter_ctx_t
-static ngx_int_t ngx_http_firetail_header_filter(ngx_http_request_t *r) {
-  return ngx_http_next_header_filter(r);
+// FiretailFilterContext
+static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *r) {
+  return kNextHeaderFilter(r);
 }
 
 // This function is called whenever the `enable_firetail` directive is found in
 // the NGINX config
-static char *ngx_http_firetail(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
+static char *EnableFiretailDirectiveInit(ngx_conf_t *cf, ngx_command_t *cmd,
+                                         void *conf) {
   // TODO: validate the args given to the directive
   // TODO: change the key arg to be the name of an env var and get it from the
   // environment
@@ -208,7 +209,7 @@ static char *ngx_http_firetail(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
 }
 
 // An array of the directives provided by the Firetail module
-static ngx_command_t ngx_http_firetail_commands[] = {
+static ngx_command_t FiretailCommands[] = {
     {// Name of the directive
      ngx_string("enable_firetail"),
      // Valid in the main config, server & location configs; and takes two args
@@ -216,34 +217,34 @@ static ngx_command_t ngx_http_firetail_commands[] = {
          NGX_CONF_TAKE2,
      // A callback function to be called when the directive is found in the
      // configuration
-     ngx_http_firetail, 0, 0, NULL},
+     EnableFiretailDirectiveInit, 0, 0, NULL},
     ngx_null_command};
 
 // Updates the next header and body filters to be our own; we're appending to a
 // singly linked list here and making our own local references to the next
 // filter down the list from us
-static ngx_int_t ngx_http_firetail_init(ngx_conf_t *cf) {
-  ngx_http_next_request_body_filter = ngx_http_top_request_body_filter;
-  ngx_http_top_request_body_filter = ngx_http_firetail_request_body_filter;
+static ngx_int_t FiretailInit(ngx_conf_t *cf) {
+  kNextRequestBodyFilter = ngx_http_top_request_body_filter;
+  ngx_http_top_request_body_filter = FiretailRequestBodyFilter;
 
-  ngx_http_next_body_filter = ngx_http_top_body_filter;
-  ngx_http_top_body_filter = ngx_http_firetail_response_body_filter;
+  kNextResponseBodyFilter = ngx_http_top_body_filter;
+  ngx_http_top_body_filter = FiretailResponseBodyFilter;
 
-  ngx_http_next_header_filter = ngx_http_top_header_filter;
-  ngx_http_top_header_filter = ngx_http_firetail_header_filter;
+  kNextHeaderFilter = ngx_http_top_header_filter;
+  ngx_http_top_header_filter = FiretailHeaderFilter;
 
   return NGX_OK;
 }
 
 // This struct defines the context for the Firetail NGINX module
-static ngx_http_module_t ngx_firetail_module_ctx = {
+static ngx_http_module_t FiretailModuleContext = {
     NULL,  // preconfiguration
     // Filters are added in the postconfiguration step
-    ngx_http_firetail_init,  // postconfiguration
-    NULL,                    // create main configuration
-    NULL,                    // init main configuration
-    NULL,                    // create server configuration
-    NULL,                    // merge server configuration
-    NULL,                    // create location configuration
-    NULL                     // merge location configuration
+    FiretailInit,  // postconfiguration
+    NULL,          // create main configuration
+    NULL,          // init main configuration
+    NULL,          // create server configuration
+    NULL,          // merge server configuration
+    NULL,          // create location configuration
+    NULL           // merge location configuration
 };
