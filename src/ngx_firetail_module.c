@@ -209,7 +209,7 @@ static char *EnableFiretailDirectiveInit(ngx_conf_t *cf, ngx_command_t *cmd,
 }
 
 // An array of the directives provided by the Firetail module
-static ngx_command_t FiretailCommands[] = {
+static ngx_command_t kFiretailCommands[] = {
     {// Name of the directive
      ngx_string("enable_firetail"),
      // Valid in the main config, server & location configs; and takes two args
@@ -237,7 +237,7 @@ static ngx_int_t FiretailInit(ngx_conf_t *cf) {
 }
 
 // This struct defines the context for the Firetail NGINX module
-static ngx_http_module_t FiretailModuleContext = {
+static ngx_http_module_t kFiretailModuleContext = {
     NULL,  // preconfiguration
     // Filters are added in the postconfiguration step
     FiretailInit,  // postconfiguration
