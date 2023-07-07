@@ -194,8 +194,38 @@ static ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
 // TODO: Extract the headers and insert them into the
 // FiretailFilterContext
-static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *r) {
-  return kNextHeaderFilter(r);
+static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
+  ngx_list_part_t *current_request_header_list_part =
+      &request->headers_in.headers.part;
+  for (; current_request_header_list_part != NULL;) {
+    ngx_table_elt_t *request_header_start =
+        current_request_header_list_part->elts;
+    for (ngx_uint_t i = 0; i < current_request_header_list_part->nelts; i++) {
+      ngx_table_elt_t *request_header = request_header_start + i;
+      fprintf(stderr, "Request Header: %.*s=%.*s\n",
+              (int)request_header->key.len, request_header->key.data,
+              (int)request_header->value.len, request_header->value.data);
+    }
+    current_request_header_list_part = current_request_header_list_part->next;
+  }
+  fprintf(stderr, "Reached the end of the request headers list.\n");
+
+  ngx_list_part_t *current_response_header_list_part =
+      &request->headers_out.headers.part;
+  for (; current_response_header_list_part != NULL;) {
+    ngx_table_elt_t *response_header_start =
+        current_response_header_list_part->elts;
+    for (ngx_uint_t i = 0; i < current_response_header_list_part->nelts; i++) {
+      ngx_table_elt_t *response_header = response_header_start + i;
+      fprintf(stderr, "Response Header: %.*s=%.*s\n",
+              (int)response_header->key.len, response_header->key.data,
+              (int)response_header->value.len, response_header->value.data);
+    }
+    current_response_header_list_part = current_response_header_list_part->next;
+  }
+  fprintf(stderr, "Reached the end of the response headers list.\n");
+
+  return kNextHeaderFilter(request);
 }
 
 // This function is called whenever the `enable_firetail` directive is found in
