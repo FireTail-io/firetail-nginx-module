@@ -13,14 +13,10 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
 
   // Determine the length of the request body chain we've been given
   long new_request_body_parts_size = 0;
-  ngx_chain_t *current_chain_link = chain_head;
-  for (;;) {
+  for (ngx_chain_t *current_chain_link = chain_head; current_chain_link != NULL;
+       current_chain_link = current_chain_link->next) {
     new_request_body_parts_size +=
         current_chain_link->buf->last - current_chain_link->buf->pos;
-    if (current_chain_link->next == NULL) {
-      break;
-    }
-    current_chain_link = current_chain_link->next;
   }
 
   // If we read in more bytes from this chain then we need to create a new char*
@@ -43,16 +39,13 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
 
     // Iterate over the chain again and copy all of the buffers over to our new
     // request body char*
-    current_chain_link = chain_head;
-    for (;;) {
+    for (ngx_chain_t *current_chain_link = chain_head;
+         current_chain_link != NULL;
+         current_chain_link = current_chain_link->next) {
       long buffer_length =
           current_chain_link->buf->last - current_chain_link->buf->pos;
       updated_request_body_i = ngx_copy(
           updated_request_body_i, current_chain_link->buf->pos, buffer_length);
-      if (current_chain_link->next == NULL) {
-        break;
-      }
-      current_chain_link = current_chain_link->next;
     }
 
     // Update the ctx with the new updated body
