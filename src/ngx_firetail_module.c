@@ -212,13 +212,7 @@ static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
            &request->headers_in.headers.part;
        request_header_list_part != NULL;
        request_header_list_part = request_header_list_part->next) {
-    for (ngx_table_elt_t *request_header = request_header_list_part->elts;
-         (ngx_uint_t)request_header <
-         (ngx_uint_t)request_header_list_part->elts +
-             request_header_list_part->nelts * sizeof(ngx_table_elt_t);
-         request_header++) {
-      ctx->request_header_count++;
-    }
+    ctx->request_header_count += request_header_list_part->nelts;
   }
 
   // Allocate memory for the request headers array
@@ -247,13 +241,7 @@ static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
            &request->headers_out.headers.part;
        response_header_list_part != NULL;
        response_header_list_part = response_header_list_part->next) {
-    for (ngx_table_elt_t *response_header = response_header_list_part->elts;
-         (ngx_uint_t)response_header <
-         (ngx_uint_t)response_header_list_part->elts +
-             response_header_list_part->nelts * sizeof(ngx_table_elt_t);
-         response_header++) {
-      ctx->response_header_count++;
-    }
+    ctx->response_header_count += response_header_list_part->nelts;
   }
 
   // Allocate memory for the response headers array
