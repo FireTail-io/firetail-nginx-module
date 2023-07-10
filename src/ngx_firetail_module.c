@@ -20,6 +20,8 @@ typedef struct {
 // This struct will hold all of the data we will send to Firetail about the
 // request & response bodies & headers
 typedef struct {
+  ngx_uint_t status_code;
+  u_char *server;
   long request_body_size;
   long response_body_size;
   u_char *request_body;
@@ -172,44 +174,123 @@ static ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     return kNextResponseBodyFilter(request, chain_head);
   }
 
-  fprintf(stderr, "Request Body:\n%.*s\n", (int)ctx->request_body_size,
-          ctx->request_body);
-  fprintf(stderr, "Request body size: %ld\n", ctx->request_body_size);
+  // Piece together a JSON object
+  // {
+  //   "version": "1.0.0-alpha",
+  //   "dateCreated": 123456789,
+  //   "executionTime": 123456789, TODO
+  //   "request": {
+  //     "ip": "8.8.8.8",
+  //     "httpProtocol": "HTTP/2",
+  //     "uri": "http://foo.bar/baz",
+  //     "resource": "",
+  //     "method": "POST",
+  //     "headers": {},
+  //     "body": ""
+  //   },
+  //   "response": {
+  //     "statusCode": 201,
+  //     "body": "",
+  //     "headers": {}
+  //   }
+  // }
+  json_object *log_root = json_object_new_object();
 
-  fprintf(stderr, "Response Body:\n%.*s\n", (int)ctx->response_body_size,
-          ctx->response_body);
-  fprintf(stderr, "Response body size: %ld\n", ctx->response_body_size);
+  json_object *version = json_object_new_string("1.0.0-alpha");
+  json_object_object_add(log_root, "version", version);
 
+  struct timespec current_time;
+  clock_gettime(CLOCK_REALTIME, &current_time);
+  json_object *date_created = json_object_new_int64(
+      current_time.tv_sec * 1000 + current_time.tv_nsec / 1000000);
+  json_object_object_add(log_root, "dateCreated", date_created);
+
+  json_object *request_object = json_object_new_object();
+  json_object_object_add(log_root, "request", request_object);
+
+  json_object *request_ip =
+      json_object_new_string_len((char *)request->connection->addr_text.data,
+                                 request->connection->addr_text.len);
+  json_object_object_add(request_object, "ip", request_ip);
+
+  json_object *request_protocol = json_object_new_string_len(
+      (char *)request->http_protocol.data, request->http_protocol.len);
+  json_object_object_add(request_object, "httpProtocol", request_protocol);
+
+  char *full_uri = ngx_palloc(
+      request->pool, strlen((char *)ctx->server) + request->unparsed_uri.len);
+  ngx_memcpy(full_uri, ctx->server, strlen((char *)ctx->server));
+  ngx_memcpy(full_uri + strlen((char *)ctx->server), request->unparsed_uri.data,
+             request->unparsed_uri.len);
+  json_object *request_uri = json_object_new_string(full_uri);
+  json_object_object_add(request_object, "uri", request_uri);
+
+  json_object *request_method = json_object_new_string_len(
+      (char *)request->method_name.data, request->method_name.len);
+  json_object_object_add(request_object, "method", request_method);
+
+  json_object *request_body = json_object_new_string_len(
+      (char *)ctx->request_body, (int)ctx->request_body_size);
+  json_object_object_add(request_object, "body", request_body);
+
+  json_object *request_headers = json_object_new_object();
   for (HTTPHeader *request_header = ctx->request_headers;
        (ngx_uint_t)request_header <
        (ngx_uint_t)ctx->request_headers +
            ctx->request_header_count * sizeof(HTTPHeader);
        request_header++) {
-    fprintf(stderr, "Request Header: %.*s=%.*s\n", (int)request_header->key.len,
-            request_header->key.data, (int)request_header->value.len,
-            request_header->value.data);
+    json_object *header_value_array = json_object_new_array_ext(1);
+    json_object_object_add(request_headers, (char *)request_header->key.data,
+                           header_value_array);
+    json_object *header_value = json_object_new_string_len(
+        (char *)request_header->value.data, (int)request_header->value.len);
+    json_object_array_add(header_value_array, header_value);
   }
+  json_object_object_add(request_object, "headers", request_headers);
 
+  json_object *response_object = json_object_new_object();
+  json_object_object_add(log_root, "response", response_object);
+
+  json_object *response_status_code = json_object_new_int(ctx->status_code);
+  json_object_object_add(response_object, "statusCode", response_status_code);
+
+  json_object *response_body = json_object_new_string_len(
+      (char *)ctx->response_body, (int)ctx->response_body_size);
+  json_object_object_add(response_object, "body", response_body);
+
+  json_object *response_headers = json_object_new_object();
   for (HTTPHeader *response_header = ctx->response_headers;
        (ngx_uint_t)response_header <
        (ngx_uint_t)ctx->response_headers +
            ctx->response_header_count * sizeof(HTTPHeader);
        response_header++) {
-    fprintf(stderr, "Response Header: %.*s=%.*s\n",
-            (int)response_header->key.len, response_header->key.data,
-            (int)response_header->value.len, response_header->value.data);
+    json_object *header_value_array = json_object_new_array_ext(1);
+    json_object_object_add(response_headers, (char *)response_header->key.data,
+                           header_value_array);
+    json_object *header_value = json_object_new_string_len(
+        (char *)response_header->value.data, (int)response_header->value.len);
+    json_object_array_add(header_value_array, header_value);
   }
+  json_object_object_add(response_object, "headers", response_headers);
 
-  fprintf(stderr, "Request header count: %ld, response header count: %ld\n",
-          ctx->request_header_count, ctx->response_header_count);
+  // Log it
+  fprintf(stderr, "%s\n",
+          json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
+  // TODO: curl Firetail logging API
+
+  // Pass the chain onto the next response body filter
   return kNextResponseBodyFilter(request, chain_head);
 }
 
-// TODO: Extract the headers and insert them into the
+// Extracts the headers, status code & server then inserts them into the
 // FiretailFilterContext
 static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
+
+  // Copy the status code and server out of the headers
+  ctx->status_code = request->headers_out.status;
+  ctx->server = request->headers_in.server.data;
 
   // Count the request headers
   for (ngx_list_part_t *request_header_list_part =
