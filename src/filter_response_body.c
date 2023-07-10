@@ -169,7 +169,47 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   fprintf(stderr, "%s\n",
           json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
-  // TODO: curl Firetail logging API
+  // Curl the Firetail logging API
+  CURL *curlHandler = curl_easy_init();
+  if (curlHandler == NULL) {
+    return kNextResponseBodyFilter(request, chain_head);
+  }
+
+  // The request headers need to specify Content-Type: application/nd-json
+  struct curl_slist *curl_headers = NULL;
+  curl_headers =
+      curl_slist_append(curl_headers, "Content-Type: application/nd-json");
+  curl_easy_setopt(curlHandler, CURLOPT_HTTPHEADER, curl_headers);
+
+  // Our request body is just the log_root as a JSON string. When we add more
+  // logs we'll need to add '\n' characters to separate them
+  curl_easy_setopt(curlHandler, CURLOPT_POSTFIELDS,
+                   json_object_to_json_string(log_root));
+
+  // We're making a POST request to the /logs/bulk endpoint
+  curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_easy_setopt(curlHandler, CURLOPT_URL,
+                   "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
+
+  // Do the request
+  CURLcode res = curl_easy_perform(curlHandler);
+
+  // If it err'd, log; otherwise we got a response (which might still be a
+  // non-2xx status code - so check it)
+  if (res != CURLE_OK) {
+    fprintf(stderr, "POST request to Firetail logging API failed: %s\n",
+            curl_easy_strerror(res));
+  } else {
+    int response_code;
+    curl_easy_getinfo(curlHandler, CURLINFO_RESPONSE_CODE, &response_code);
+    fprintf(
+        stderr,
+        "Status code from POST request to Firetail /logs/bulk endpoint: %d\n",
+        response_code);
+  }
+
+  // Remember to clean up your mess
+  curl_easy_cleanup(curlHandler);
 
   // Pass the chain onto the next response body filter
   return kNextResponseBodyFilter(request, chain_head);
