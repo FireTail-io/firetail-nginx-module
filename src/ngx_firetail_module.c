@@ -11,6 +11,12 @@ static ngx_http_output_header_filter_pt kNextHeaderFilter;
 static ngx_http_output_body_filter_pt kNextResponseBodyFilter;
 static ngx_http_request_body_filter_pt kNextRequestBodyFilter;
 
+// Holds a HTTP header
+typedef struct {
+  ngx_str_t key;
+  ngx_str_t value;
+} HTTPHeader;
+
 // This struct will hold all of the data we will send to Firetail about the
 // request & response bodies & headers
 typedef struct {
@@ -18,6 +24,10 @@ typedef struct {
   long response_body_size;
   u_char *request_body;
   u_char *response_body;
+  long request_header_count;
+  long response_header_count;
+  HTTPHeader *request_headers;
+  HTTPHeader *response_headers;
 } FiretailFilterContext;
 
 // This utility function will allow us to get the filter ctx whenever we need
@@ -195,6 +205,9 @@ static ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 // TODO: Extract the headers and insert them into the
 // FiretailFilterContext
 static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
+  FiretailFilterContext *ctx = GetFiretailFilterContext(request);
+
+  // Count the request headers
   for (ngx_list_part_t *request_header_list_part =
            &request->headers_in.headers.part;
        request_header_list_part != NULL;
@@ -204,13 +217,32 @@ static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
          (ngx_uint_t)request_header_list_part->elts +
              request_header_list_part->nelts * sizeof(ngx_table_elt_t);
          request_header++) {
-      fprintf(stderr, "Request Header: %.*s=%.*s\n",
-              (int)request_header->key.len, request_header->key.data,
-              (int)request_header->value.len, request_header->value.data);
+      ctx->request_header_count++;
     }
   }
-  fprintf(stderr, "Reached the end of the request headers list.\n");
 
+  // Allocate memory for the request headers array
+  ctx->request_headers =
+      ngx_palloc(request->pool, ctx->request_header_count * sizeof(HTTPHeader));
+
+  // Populate the request headers array
+  HTTPHeader *recorded_request_header = ctx->request_headers;
+  for (ngx_list_part_t *request_header_list_part =
+           &request->headers_in.headers.part;
+       request_header_list_part != NULL;
+       request_header_list_part = request_header_list_part->next) {
+    for (ngx_table_elt_t *request_header = request_header_list_part->elts;
+         (ngx_uint_t)request_header <
+         (ngx_uint_t)request_header_list_part->elts +
+             request_header_list_part->nelts * sizeof(ngx_table_elt_t);
+         request_header++) {
+      recorded_request_header->key = request_header->key;
+      recorded_request_header->value = request_header->value;
+      recorded_request_header++;
+    }
+  }
+
+  // Count the response headers
   for (ngx_list_part_t *response_header_list_part =
            &request->headers_out.headers.part;
        response_header_list_part != NULL;
@@ -220,12 +252,30 @@ static ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
          (ngx_uint_t)response_header_list_part->elts +
              response_header_list_part->nelts * sizeof(ngx_table_elt_t);
          response_header++) {
-      fprintf(stderr, "Response Header: %.*s=%.*s\n",
-              (int)response_header->key.len, response_header->key.data,
-              (int)response_header->value.len, response_header->value.data);
+      ctx->response_header_count++;
     }
   }
-  fprintf(stderr, "Reached the end of the response headers list.\n");
+
+  // Allocate memory for the response headers array
+  ctx->response_headers = ngx_palloc(
+      request->pool, ctx->response_header_count * sizeof(HTTPHeader));
+
+  // Populate the response headers array
+  HTTPHeader *recorded_response_header = ctx->response_headers;
+  for (ngx_list_part_t *response_header_list_part =
+           &request->headers_out.headers.part;
+       response_header_list_part != NULL;
+       response_header_list_part = response_header_list_part->next) {
+    for (ngx_table_elt_t *response_header = response_header_list_part->elts;
+         (ngx_uint_t)response_header <
+         (ngx_uint_t)response_header_list_part->elts +
+             response_header_list_part->nelts * sizeof(ngx_table_elt_t);
+         response_header++) {
+      recorded_response_header->key = response_header->key;
+      recorded_response_header->value = response_header->value;
+      recorded_response_header++;
+    }
+  }
 
   return kNextHeaderFilter(request);
 }
