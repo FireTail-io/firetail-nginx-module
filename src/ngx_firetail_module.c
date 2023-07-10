@@ -54,17 +54,12 @@ static ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
     return NGX_ERROR;
   }
 
-  // Determine the length of the request body chain we've been given, and if the
-  // chain contains the last link
-  int chain_contains_last_link = 0;
+  // Determine the length of the request body chain we've been given
   long new_request_body_parts_size = 0;
   ngx_chain_t *current_chain_link = chain_head;
   for (;;) {
     new_request_body_parts_size +=
         current_chain_link->buf->last - current_chain_link->buf->pos;
-    if (current_chain_link->buf->last_buf) {
-      chain_contains_last_link = 1;
-    }
     if (current_chain_link->next == NULL) {
       break;
     }
@@ -105,18 +100,6 @@ static ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
 
     // Update the ctx with the new updated body
     ctx->request_body = updated_request_body;
-  }
-
-  fprintf(
-      stderr,
-      "Got a request body chain of size %ld. Total request body size: %ld\n",
-      new_request_body_parts_size, ctx->request_body_size);
-
-  if (chain_contains_last_link) {
-    fprintf(stderr, "Reached the end of the request body chain!\n");
-    fprintf(stderr, "Request Body:\n%.*s\n", (int)ctx->request_body_size,
-            ctx->request_body);
-    fprintf(stderr, "Request body size: %ld\n", ctx->request_body_size);
   }
 
   return kNextRequestBodyFilter(request, chain_head);
@@ -183,21 +166,42 @@ static ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     ctx->response_body = updated_response_body;
   }
 
-  fprintf(
-      stderr,
-      "Got a response body chain of size %ld. Total response body size: %ld\n",
-      new_response_body_parts_size, ctx->response_body_size);
-
   // If it doesn't contain the last buffer of the response body, pass everything
   // onto the next filter - we do not care.
   if (!chain_contains_last_link) {
     return kNextResponseBodyFilter(request, chain_head);
   }
 
-  fprintf(stderr, "Reached the end of the response body chain!\n");
+  fprintf(stderr, "Request Body:\n%.*s\n", (int)ctx->request_body_size,
+          ctx->request_body);
+  fprintf(stderr, "Request body size: %ld\n", ctx->request_body_size);
+
   fprintf(stderr, "Response Body:\n%.*s\n", (int)ctx->response_body_size,
           ctx->response_body);
   fprintf(stderr, "Response body size: %ld\n", ctx->response_body_size);
+
+  for (HTTPHeader *request_header = ctx->request_headers;
+       (ngx_uint_t)request_header <
+       (ngx_uint_t)ctx->request_headers +
+           ctx->request_header_count * sizeof(HTTPHeader);
+       request_header++) {
+    fprintf(stderr, "Request Header: %.*s=%.*s\n", (int)request_header->key.len,
+            request_header->key.data, (int)request_header->value.len,
+            request_header->value.data);
+  }
+
+  for (HTTPHeader *response_header = ctx->response_headers;
+       (ngx_uint_t)response_header <
+       (ngx_uint_t)ctx->response_headers +
+           ctx->response_header_count * sizeof(HTTPHeader);
+       response_header++) {
+    fprintf(stderr, "Response Header: %.*s=%.*s\n",
+            (int)response_header->key.len, response_header->key.data,
+            (int)response_header->value.len, response_header->value.data);
+  }
+
+  fprintf(stderr, "Request header count: %ld, response header count: %ld\n",
+          ctx->request_header_count, ctx->response_header_count);
 
   return kNextResponseBodyFilter(request, chain_head);
 }
