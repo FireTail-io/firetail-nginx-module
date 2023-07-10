@@ -1,0 +1,4 @@
+nginx-*
+vcpkg
+.vscode
+**/.DS_Store
