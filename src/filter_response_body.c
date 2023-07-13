@@ -122,6 +122,10 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   json_object *request_uri = json_object_new_string(full_uri);
   json_object_object_add(request_object, "uri", request_uri);
 
+  json_object *request_resource = json_object_new_string_len(
+      (char *)request->unparsed_uri.data, request->unparsed_uri.len);
+  json_object_object_add(request_object, "resource", request_resource);
+
   json_object *request_method = json_object_new_string_len(
       (char *)request->method_name.data, request->method_name.len);
   json_object_object_add(request_object, "method", request_method);
