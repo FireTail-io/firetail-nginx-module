@@ -114,11 +114,15 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       (char *)request->http_protocol.data, request->http_protocol.len);
   json_object_object_add(request_object, "httpProtocol", request_protocol);
 
-  char *full_uri = ngx_palloc(
-      request->pool, strlen((char *)ctx->server) + request->unparsed_uri.len);
-  ngx_memcpy(full_uri, ctx->server, strlen((char *)ctx->server));
-  ngx_memcpy(full_uri + strlen((char *)ctx->server), request->unparsed_uri.data,
-             request->unparsed_uri.len);
+  // TODO: determine http/https
+  char *full_uri = ngx_palloc(request->pool, strlen((char *)ctx->server) +
+                                                 request->unparsed_uri.len +
+                                                 strlen("http://"));
+  ngx_memcpy(full_uri, "http://", strlen("http://"));
+  ngx_memcpy(full_uri + strlen("http://"), ctx->server,
+             strlen((char *)ctx->server));
+  ngx_memcpy(full_uri + strlen("http://") + strlen((char *)ctx->server),
+             request->unparsed_uri.data, request->unparsed_uri.len);
   json_object *request_uri = json_object_new_string(full_uri);
   json_object_object_add(request_object, "uri", request_uri);
 
