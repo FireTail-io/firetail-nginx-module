@@ -67,10 +67,11 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   }
 
   // Piece together a JSON object
+  // TODO: optimise the JSON generation process
   // {
   //   "version": "1.0.0-alpha",
   //   "dateCreated": 123456789,
-  //   "executionTime": 123456789, TODO
+  //   "executionTime": 123456789,
   //   "request": {
   //     "ip": "8.8.8.8",
   //     "httpProtocol": "HTTP/2",
@@ -96,6 +97,10 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   json_object *date_created = json_object_new_int64(
       current_time.tv_sec * 1000 + current_time.tv_nsec / 1000000);
   json_object_object_add(log_root, "dateCreated", date_created);
+
+  // TODO: replace with actual executionTime
+  json_object *execution_time = json_object_new_int64(123456789);
+  json_object_object_add(log_root, "executionTime", execution_time);
 
   json_object *request_object = json_object_new_object();
   json_object_object_add(log_root, "request", request_object);
@@ -170,6 +175,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
           json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
   // Curl the Firetail logging API
+  // TODO: replace this with multi curl for non-blocking requests
   CURL *curlHandler = curl_easy_init();
   if (curlHandler == NULL) {
     return kNextResponseBodyFilter(request, chain_head);
