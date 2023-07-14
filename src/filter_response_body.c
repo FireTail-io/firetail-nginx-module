@@ -12,6 +12,10 @@ size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
 
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
+  // Set the logging level to debug
+  // TODO: remove
+  request->connection->log->log_level = NGX_LOG_DEBUG;
+
   // Get our context so we can store the response body data
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
   if (ctx == NULL) {
@@ -184,8 +188,9 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   json_object_object_add(response_object, "headers", response_headers);
 
   // Log it
-  fprintf(stderr, "%s\n",
-          json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
+  ngx_log_error(
+      NGX_LOG_DEBUG, request->connection->log, 0, "%s",
+      json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
   // Curl the Firetail logging API
   // TODO: replace this with multi curl for non-blocking requests
@@ -202,6 +207,28 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   struct curl_slist *curl_headers = NULL;
   curl_headers =
       curl_slist_append(curl_headers, "Content-Type: application/nd-json");
+
+  // The headers also need to provide the Firetail API key
+  // TODO: check this wayyyyy earlier so we don't wastefully generate JSON etc.
+  FiretailMainConfig *main_config =
+      ngx_http_get_module_main_conf(request, ngx_firetail_module);
+  if (main_config->FiretailApiToken.len > 0) {
+    char *x_ft_api_key =
+        ngx_palloc(request->pool, strlen("x-ft-api-key: ") +
+                                      main_config->FiretailApiToken.len);
+    ngx_memcpy(x_ft_api_key, "x-ft-api-key: ", strlen("x-ft-api-key: "));
+    ngx_memcpy(x_ft_api_key + strlen("x-ft-api-key: "),
+               main_config->FiretailApiToken.data,
+               main_config->FiretailApiToken.len);
+    curl_headers = curl_slist_append(curl_headers, x_ft_api_key);
+  } else {
+    ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "FIRETAIL_API_KEY environment variable unset. Not sending "
+                  "log to Firetail.");
+    return kNextResponseBodyFilter(request, chain_head);
+  }
+
+  // Add the headers to the request
   curl_easy_setopt(curlHandler, CURLOPT_HTTPHEADER, curl_headers);
 
   // Our request body is just the log_root as a JSON string. When we add more
@@ -220,14 +247,15 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // If it err'd, log; otherwise we got a response (which might still be a
   // non-2xx status code - so check it)
   if (res != CURLE_OK) {
-    fprintf(stderr, "POST request to Firetail logging API failed: %s\n",
-            curl_easy_strerror(res));
+    ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "POST request to Firetail logging API failed: %s",
+                  curl_easy_strerror(res));
   } else {
     int response_code;
     curl_easy_getinfo(curlHandler, CURLINFO_RESPONSE_CODE, &response_code);
-    fprintf(
-        stderr,
-        "Status code from POST request to Firetail /logs/bulk endpoint: %d\n",
+    ngx_log_error(
+        NGX_LOG_DEBUG, request->connection->log, 0,
+        "Status code from POST request to Firetail /logs/bulk endpoint: %d",
         response_code);
   }
 
