@@ -15,6 +15,18 @@ docker build -t firetail-nginx . --target firetail-nginx-dev -f dev/Dockerfile
 docker run -p 8080:80 firetail-nginx
 ```
 
+When you first make a request to [localhost:8080](http://localhost:8080) you will likely see a log similar to the following:
+
+```
+2023/07/14 11:44:37 [debug] 29#29: *1 Status code from POST request to Firetail /logs/bulk endpoint: 401
+```
+
+The Firetail NGINX Module will be receiving 401 responses as you have not yet configured your [nginx.conf](./nginx.conf) with a valid Firetail logs API token. You will need to update the following directive with a valid token:
+
+```
+  firetail_api_token "YOUR-API-TOKEN";
+```
+
 
 
 ### VSCode
