@@ -126,7 +126,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // TODO: determine http/https
   char *full_uri = ngx_palloc(request->pool, strlen((char *)ctx->server) +
                                                  request->unparsed_uri.len +
-                                                 strlen("http://"));
+                                                 strlen("http://") + 1);
   ngx_memcpy(full_uri, "http://", strlen("http://"));
   ngx_memcpy(full_uri + strlen("http://"), ctx->server,
              strlen((char *)ctx->server));
