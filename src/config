@@ -1,16 +1,34 @@
 ngx_addon_name=ngx_firetail_module
 
+FIRETAIL_SRCS="                                                             \
+        $ngx_addon_dir/firetail_module.c                                    \
+        $ngx_addon_dir/filter_context.c                                     \
+        $ngx_addon_dir/filter_request_body.c                                \
+        $ngx_addon_dir/filter_response_body.c                               \
+        $ngx_addon_dir/filter_headers.c                                     \
+        "
+
+FIRETAIL_DEPS="                                                             \
+        $ngx_addon_dir/firetail_module.h                                    \
+        $ngx_addon_dir/filter_context.h                                     \
+        $ngx_addon_dir/filter_request_body.h                                \
+        $ngx_addon_dir/filter_response_body.h                               \
+        $ngx_addon_dir/filter_headers.h                                     \
+        "
+
 if test -n "$ngx_module_link"; then
-    # The New Way
     ngx_module_type=HTTP_FILTER
     ngx_module_name=ngx_firetail_module
-    ngx_module_srcs="$ngx_addon_dir/ngx_firetail_module.c"
+    ngx_module_incs=
+    ngx_module_deps="$FIRETAIL_DEPS"
+    ngx_module_srcs="$FIRETAIL_SRCS"
     ngx_module_libs="-lcurl -ljson-c"
 
     . auto/module
 else
     # The Old Way
     HTTP_FILTER_MODULES="$HTTP_FILTER_MODULES ngx_firetail_module"
-    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $ngx_addon_dir/ngx_firetail_module.c"
+    NGX_ADDON_SRCS="$NGX_ADDON_SRCS $FIRETAIL_SRCS"
+    NGX_ADDON_DEPS="$NGX_ADDON_DEPS $FIRETAIL_DEPS"
     CORE_LIBS="$CORE_LIBS -lcurl -ljson-c"
 fi
