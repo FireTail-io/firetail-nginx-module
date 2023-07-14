@@ -203,6 +203,9 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   curl_easy_setopt(curlHandler, CURLOPT_WRITEFUNCTION,
                    LibcurlNoopWriteFunction);
 
+  // Set CURLOPT_ACCEPT_ENCODING otherwise emoji will break things 🥲
+  curl_easy_setopt(curlHandler, CURLOPT_ACCEPT_ENCODING, "");
+
   // The request headers need to specify Content-Type: application/nd-json
   struct curl_slist *curl_headers = NULL;
   curl_headers =
