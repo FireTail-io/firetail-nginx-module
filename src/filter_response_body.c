@@ -5,6 +5,11 @@
 #include "filter_response_body.h"
 #include "firetail_module.h"
 
+size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
+                                void *userp) {
+  return size * nmemb;
+}
+
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
   // Get our context so we can store the response body data
@@ -188,6 +193,10 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   if (curlHandler == NULL) {
     return kNextResponseBodyFilter(request, chain_head);
   }
+
+  // Don't log the response
+  curl_easy_setopt(curlHandler, CURLOPT_WRITEFUNCTION,
+                   LibcurlNoopWriteFunction);
 
   // The request headers need to specify Content-Type: application/nd-json
   struct curl_slist *curl_headers = NULL;
