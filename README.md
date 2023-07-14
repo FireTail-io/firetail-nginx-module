@@ -96,11 +96,13 @@ To setup the Firetail NGINX Module, you will need to modify your `nginx.conf` to
 load_module modules/ngx_firetail_module.so;
 ```
 
-You can then use the `enable_firetail` directive like so:
+You can then use the `firetail_api_token` directive to provide your Firetail logging API token inside a http block like so:
 
 ```
-enable_firetail "apikey" "firetail url";
+  firetail_api_token "YOUR-API-TOKEN";
 ```
 
 See [dev/nginx.conf](./dev/nginx.conf) for an example of this in action.
+
+You should use a module such as the [ngx_http_lua_module](https://github.com/openresty/lua-nginx-module) to avoid placing plaintext credentials in your `nginx.conf`, and instead make use of [system environment variables](https://github.com/openresty/lua-nginx-module#system-environment-variable-support).
 
