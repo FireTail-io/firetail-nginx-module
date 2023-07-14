@@ -24,35 +24,59 @@ ngx_int_t FiretailInit(ngx_conf_t *cf) {
   return NGX_OK;
 }
 
+static void *CreateFiretailMainConfig(ngx_conf_t *configuration_object) {
+  FiretailMainConfig *http_main_config =
+      ngx_pcalloc(configuration_object->pool, sizeof(FiretailMainConfig));
+  if (http_main_config == NULL) {
+    return NULL;
+  }
+  ngx_str_t firetail_api_token = ngx_string("");
+  http_main_config->FiretailApiToken = firetail_api_token;
+  return http_main_config;
+}
+
+static char *InitFiretailMainConfig(ngx_conf_t *configuration_object,
+                                    void *http_main_config) {
+  return NGX_CONF_OK;
+}
+
 ngx_http_module_t kFiretailModuleContext = {
-    NULL,  // preconfiguration
-    // Filters are added in the postconfiguration step
-    FiretailInit,  // postconfiguration
-    NULL,          // create main configuration
-    NULL,          // init main configuration
-    NULL,          // create server configuration
-    NULL,          // merge server configuration
-    NULL,          // create location configuration
-    NULL           // merge location configuration
+    NULL,                      // preconfiguration
+    FiretailInit,              // postconfiguration
+    CreateFiretailMainConfig,  // create main configuration
+    InitFiretailMainConfig,    // init main configuration
+    NULL,                      // create server configuration
+    NULL,                      // merge server configuration
+    NULL,                      // create location configuration
+    NULL                       // merge location configuration
 };
 
-char *EnableFiretailDirectiveInit(ngx_conf_t *cf, ngx_command_t *cmd,
-                                  void *conf) {
+char *EnableFiretailDirectiveInit(ngx_conf_t *configuration_object,
+                                  ngx_command_t *command_definition,
+                                  void *http_main_config) {
   // TODO: validate the args given to the directive
-  // TODO: change the key arg to be the name of an env var and get it from the
-  // environment
-  return NGX_OK;
+
+  // Find the firetail_api_key_field given the config pointer & offset in cmd
+  char *firetail_config = http_main_config;
+  ngx_str_t *firetail_api_key_field =
+      (ngx_str_t *)(firetail_config + command_definition->offset);
+
+  // Get the string value from the configuraion object
+  ngx_str_t *value = configuration_object->args->elts;
+  *firetail_api_key_field = value[1];
+
+  return NGX_CONF_OK;
 }
 
 ngx_command_t kFiretailCommands[2] = {
     {// Name of the directive
-     ngx_string("enable_firetail"),
-     // Valid in the main config, server & location configs; and takes two args
-     NGX_HTTP_MAIN_CONF | NGX_HTTP_SRV_CONF | NGX_HTTP_LOC_CONF |
-         NGX_CONF_TAKE2,
+     ngx_string("firetail_api_token"),
+     // Valid in the main config and takes one arg
+     NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
      // A callback function to be called when the directive is found in the
      // configuration
-     EnableFiretailDirectiveInit, 0, 0, NULL},
+     EnableFiretailDirectiveInit, NGX_HTTP_MAIN_CONF_OFFSET,
+     offsetof(FiretailMainConfig, FiretailApiToken), NULL},
     ngx_null_command};
 
 ngx_module_t ngx_firetail_module = {

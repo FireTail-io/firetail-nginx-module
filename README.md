@@ -15,6 +15,18 @@ docker build -t firetail-nginx . --target firetail-nginx-dev -f dev/Dockerfile
 docker run -p 8080:80 firetail-nginx
 ```
 
+When you first make a request to [localhost:8080](http://localhost:8080) you will likely see a log similar to the following:
+
+```
+2023/07/14 11:44:37 [debug] 29#29: *1 Status code from POST request to Firetail /logs/bulk endpoint: 401
+```
+
+The Firetail NGINX Module will be receiving 401 responses as you have not yet configured your [nginx.conf](./nginx.conf) with a valid Firetail logs API token. You will need to update the following directive with a valid token:
+
+```
+  firetail_api_token "YOUR-API-TOKEN";
+```
+
 
 
 ### VSCode
@@ -84,11 +96,13 @@ To setup the Firetail NGINX Module, you will need to modify your `nginx.conf` to
 load_module modules/ngx_firetail_module.so;
 ```
 
-You can then use the `enable_firetail` directive like so:
+You can then use the `firetail_api_token` directive to provide your Firetail logging API token inside a http block like so:
 
 ```
-enable_firetail "apikey" "firetail url";
+  firetail_api_token "YOUR-API-TOKEN";
 ```
 
 See [dev/nginx.conf](./dev/nginx.conf) for an example of this in action.
+
+You should use a module such as the [ngx_http_lua_module](https://github.com/openresty/lua-nginx-module) to avoid placing plaintext credentials in your `nginx.conf`, and instead make use of [system environment variables](https://github.com/openresty/lua-nginx-module#system-environment-variable-support).
 

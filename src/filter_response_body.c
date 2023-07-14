@@ -5,8 +5,17 @@
 #include "filter_response_body.h"
 #include "firetail_module.h"
 
+size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
+                                void *userp) {
+  return size * nmemb;
+}
+
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
+  // Set the logging level to debug
+  // TODO: remove
+  request->connection->log->log_level = NGX_LOG_DEBUG;
+
   // Get our context so we can store the response body data
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
   if (ctx == NULL) {
@@ -67,10 +76,11 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   }
 
   // Piece together a JSON object
+  // TODO: optimise the JSON generation process
   // {
   //   "version": "1.0.0-alpha",
   //   "dateCreated": 123456789,
-  //   "executionTime": 123456789, TODO
+  //   "executionTime": 123456789,
   //   "request": {
   //     "ip": "8.8.8.8",
   //     "httpProtocol": "HTTP/2",
@@ -97,6 +107,10 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       current_time.tv_sec * 1000 + current_time.tv_nsec / 1000000);
   json_object_object_add(log_root, "dateCreated", date_created);
 
+  // TODO: replace with actual executionTime
+  json_object *execution_time = json_object_new_int64(123456789);
+  json_object_object_add(log_root, "executionTime", execution_time);
+
   json_object *request_object = json_object_new_object();
   json_object_object_add(log_root, "request", request_object);
 
@@ -109,13 +123,21 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       (char *)request->http_protocol.data, request->http_protocol.len);
   json_object_object_add(request_object, "httpProtocol", request_protocol);
 
-  char *full_uri = ngx_palloc(
-      request->pool, strlen((char *)ctx->server) + request->unparsed_uri.len);
-  ngx_memcpy(full_uri, ctx->server, strlen((char *)ctx->server));
-  ngx_memcpy(full_uri + strlen((char *)ctx->server), request->unparsed_uri.data,
-             request->unparsed_uri.len);
+  // TODO: determine http/https
+  char *full_uri = ngx_palloc(request->pool, strlen((char *)ctx->server) +
+                                                 request->unparsed_uri.len +
+                                                 strlen("http://") + 1);
+  ngx_memcpy(full_uri, "http://", strlen("http://"));
+  ngx_memcpy(full_uri + strlen("http://"), ctx->server,
+             strlen((char *)ctx->server));
+  ngx_memcpy(full_uri + strlen("http://") + strlen((char *)ctx->server),
+             request->unparsed_uri.data, request->unparsed_uri.len);
   json_object *request_uri = json_object_new_string(full_uri);
   json_object_object_add(request_object, "uri", request_uri);
+
+  json_object *request_resource = json_object_new_string_len(
+      (char *)request->unparsed_uri.data, request->unparsed_uri.len);
+  json_object_object_add(request_object, "resource", request_resource);
 
   json_object *request_method = json_object_new_string_len(
       (char *)request->method_name.data, request->method_name.len);
@@ -166,10 +188,82 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   json_object_object_add(response_object, "headers", response_headers);
 
   // Log it
-  fprintf(stderr, "%s\n",
-          json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
+  ngx_log_error(
+      NGX_LOG_DEBUG, request->connection->log, 0, "%s",
+      json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
-  // TODO: curl Firetail logging API
+  // Curl the Firetail logging API
+  // TODO: replace this with multi curl for non-blocking requests
+  CURL *curlHandler = curl_easy_init();
+  if (curlHandler == NULL) {
+    return kNextResponseBodyFilter(request, chain_head);
+  }
+
+  // Don't log the response
+  curl_easy_setopt(curlHandler, CURLOPT_WRITEFUNCTION,
+                   LibcurlNoopWriteFunction);
+
+  // Set CURLOPT_ACCEPT_ENCODING otherwise emoji will break things 🥲
+  curl_easy_setopt(curlHandler, CURLOPT_ACCEPT_ENCODING, "");
+
+  // The request headers need to specify Content-Type: application/nd-json
+  struct curl_slist *curl_headers = NULL;
+  curl_headers =
+      curl_slist_append(curl_headers, "Content-Type: application/nd-json");
+
+  // The headers also need to provide the Firetail API key
+  // TODO: check this wayyyyy earlier so we don't wastefully generate JSON etc.
+  FiretailMainConfig *main_config =
+      ngx_http_get_module_main_conf(request, ngx_firetail_module);
+  if (main_config->FiretailApiToken.len > 0) {
+    char *x_ft_api_key =
+        ngx_palloc(request->pool, strlen("x-ft-api-key: ") +
+                                      main_config->FiretailApiToken.len);
+    ngx_memcpy(x_ft_api_key, "x-ft-api-key: ", strlen("x-ft-api-key: "));
+    ngx_memcpy(x_ft_api_key + strlen("x-ft-api-key: "),
+               main_config->FiretailApiToken.data,
+               main_config->FiretailApiToken.len);
+    curl_headers = curl_slist_append(curl_headers, x_ft_api_key);
+  } else {
+    ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "FIRETAIL_API_KEY environment variable unset. Not sending "
+                  "log to Firetail.");
+    return kNextResponseBodyFilter(request, chain_head);
+  }
+
+  // Add the headers to the request
+  curl_easy_setopt(curlHandler, CURLOPT_HTTPHEADER, curl_headers);
+
+  // Our request body is just the log_root as a JSON string. When we add more
+  // logs we'll need to add '\n' characters to separate them
+  curl_easy_setopt(curlHandler, CURLOPT_POSTFIELDS,
+                   json_object_to_json_string(log_root));
+
+  // We're making a POST request to the /logs/bulk endpoint
+  curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
+  curl_easy_setopt(curlHandler, CURLOPT_URL,
+                   "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
+
+  // Do the request
+  CURLcode res = curl_easy_perform(curlHandler);
+
+  // If it err'd, log; otherwise we got a response (which might still be a
+  // non-2xx status code - so check it)
+  if (res != CURLE_OK) {
+    ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "POST request to Firetail logging API failed: %s",
+                  curl_easy_strerror(res));
+  } else {
+    int response_code;
+    curl_easy_getinfo(curlHandler, CURLINFO_RESPONSE_CODE, &response_code);
+    ngx_log_error(
+        NGX_LOG_DEBUG, request->connection->log, 0,
+        "Status code from POST request to Firetail /logs/bulk endpoint: %d",
+        response_code);
+  }
+
+  // Remember to clean up your mess
+  curl_easy_cleanup(curlHandler);
 
   // Pass the chain onto the next response body filter
   return kNextResponseBodyFilter(request, chain_head);

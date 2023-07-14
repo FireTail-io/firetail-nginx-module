@@ -3,6 +3,11 @@
 
 #include <ngx_http.h>
 
+// This config struct will hold our API key
+typedef struct {
+  ngx_str_t FiretailApiToken;  // TODO: this should probably be a *ngx_str_t
+} FiretailMainConfig;
+
 // The header and body filters of the filter that was added just before ours.
 // These make up part of a singly linked list of header and body filters.
 extern ngx_http_output_header_filter_pt kNextHeaderFilter;
