@@ -1,4 +1,19 @@
-FROM debian:bullseye-slim AS build
+FROM golang:1.21.0-bullseye AS build-golang
+
+# Make a /src and /dist directory, with our workdir set to /src
+WORKDIR /src
+RUN mkdir /dist
+
+# Copy in our go source for the validator
+COPY src/validator /src
+
+# Build the go source as a c-shared lib, outputting to /dist as /dist/validator.so
+# NOTE: this will also create a /dist/validator.h which is not needed, so it's discarded it afterwards
+RUN CGO_ENABLED=1 go build -buildmode c-shared -o /dist/firetail-validator.so .
+RUN rm /dist/firetail-validator.h
+RUN go version -m /dist/firetail-validator.so
+
+FROM debian:bullseye-slim AS build-c
 
 ENV NGINX_VERSION 1.24.0
 
@@ -20,7 +35,8 @@ RUN cd /tmp/nginx-${NGINX_VERSION} && \
 # Copy our dynamic module & its dependencies into the image for the nginx version we want to use
 FROM nginx:1.24.0 AS firetail-nginx
 RUN apt-get update && apt-get install -y libjson-c-dev
-COPY --from=build /tmp/nginx-${NGINX_VERSION}/objs/* /etc/nginx/modules/
+COPY --from=build-golang /dist/* /etc/nginx/modules/
+COPY --from=build-c /tmp/nginx-${NGINX_VERSION}/objs/* /etc/nginx/modules/
 
 # An image for local dev with a custom nginx.conf and index.html
 FROM firetail-nginx as firetail-nginx-dev
