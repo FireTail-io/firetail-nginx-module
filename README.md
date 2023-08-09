@@ -86,6 +86,10 @@ You will then need to install the Firetail NGINX Module's dependencies, [curl](h
 make modules
 ```
 
+The Firetail NGINX module is also dependent upon a validator module, written in Go.
+
+// TODO: docs for building the Golang validator 
+
 
 
 ## Configuration
