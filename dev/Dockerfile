@@ -12,7 +12,7 @@ RUN curl http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o /tmp/nginx-$
 RUN apt install -y build-essential libpcre++-dev zlib1g-dev libcurl4-openssl-dev libjson-c-dev
 
 # Build our dynamic module
-COPY src /tmp/ngx-firetail-module
+COPY src/nginx_module /tmp/ngx-firetail-module
 RUN cd /tmp/nginx-${NGINX_VERSION} && \
     ./configure --with-compat --add-dynamic-module=/tmp/ngx-firetail-module && \
     make modules

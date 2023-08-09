@@ -3,9 +3,13 @@
 
 #include <ngx_http.h>
 
+typedef int (*ValidateBodyFunc)(void *, int);
+
 // This config struct will hold our API key
 typedef struct {
   ngx_str_t FiretailApiToken;  // TODO: this should probably be a *ngx_str_t
+  ValidateBodyFunc RequestBodyValidator;
+  ValidateBodyFunc ResponseBodyValidator;
 } FiretailMainConfig;
 
 // The header and body filters of the filter that was added just before ours.
