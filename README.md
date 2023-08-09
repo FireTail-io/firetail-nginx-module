@@ -76,7 +76,7 @@ You can then use the `configure` command to generate a `makefile` to build the d
 
 ```bash
 cd nginx-1.24.0
-./configure --with-compat --add-dynamic-module=../src
+./configure --with-compat --add-dynamic-module=../src/nginx_module
 make modules
 ```
 
