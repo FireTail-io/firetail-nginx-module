@@ -11,7 +11,6 @@ COPY src/validator /src
 # NOTE: this will also create a /dist/validator.h which is not needed, so it's discarded it afterwards
 RUN CGO_ENABLED=1 go build -buildmode c-shared -o /dist/firetail-validator.so .
 RUN rm /dist/firetail-validator.h
-RUN go version -m /dist/firetail-validator.so
 
 FROM debian:bullseye-slim AS build-c
 
