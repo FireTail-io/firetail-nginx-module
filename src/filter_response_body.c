@@ -247,15 +247,16 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);
-  //CURLcode res = curl_easy_perform(curlHandler);
+  // CURLcode res = curl_easy_perform(curlHandler);
 
   int still_running;
   do {
     CURLMcode mc = curl_multi_perform(multiHandler, &still_running);
  
-    if(!mc && still_running)
+    if(!mc && still_running) {
       /* wait for activity, timeout or "nothing" */
       mc = curl_multi_poll(multiHandler, NULL, 0, 1000, NULL);
+    }
  
     if(mc) {
       ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
