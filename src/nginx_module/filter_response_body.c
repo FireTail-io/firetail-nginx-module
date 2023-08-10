@@ -231,8 +231,12 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     return kNextResponseBodyFilter(request, chain_head);
   }
 
-  main_config->ResponseBodyValidator(ctx->response_body,
-                                     ctx->response_body_size);
+  ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+                "Validating the response body with Golang...");
+  int validation_result = main_config->ResponseBodyValidator(
+      ctx->response_body, ctx->response_body_size);
+  ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+                "Validation result: %d", validation_result);
 
   // Add the headers to the request
   curl_easy_setopt(curlHandler, CURLOPT_HTTPHEADER, curl_headers);
