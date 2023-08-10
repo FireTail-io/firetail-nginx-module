@@ -194,6 +194,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // Curl the Firetail logging API
   // TODO: replace this with multi curl for non-blocking requests
+  CURLM *multiHandler = curl_multi_init();
   CURL *curlHandler = curl_easy_init();
   if (curlHandler == NULL) {
     return kNextResponseBodyFilter(request, chain_head);
@@ -245,11 +246,32 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                    "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
 
   // Do the request
-  CURLcode res = curl_easy_perform(curlHandler);
+  curl_multi_add_handle(multiHandler, curlHandler);
+  //CURLcode res = curl_easy_perform(curlHandler);
+
+  int still_running;
+  do {
+    CURLMcode mc = curl_multi_perform(multiHandler, &still_running);
+ 
+    if(!mc && still_running)
+      /* wait for activity, timeout or "nothing" */
+      mc = curl_multi_poll(multiHandler, NULL, 0, 1000, NULL);
+ 
+    if(mc) {
+      ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+              "curl_multi_poll() failed, code %d.\n",
+              (int)mc);
+
+      break;
+    }
+ 
+  /* if there are still transfers, loop! */
+  } while(still_running);
+
 
   // If it err'd, log; otherwise we got a response (which might still be a
   // non-2xx status code - so check it)
-  if (res != CURLE_OK) {
+  /* if (res != CURLE_OK) {
     ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
                   "POST request to Firetail logging API failed: %s",
                   curl_easy_strerror(res));
@@ -260,9 +282,10 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
         NGX_LOG_DEBUG, request->connection->log, 0,
         "Status code from POST request to Firetail /logs/bulk endpoint: %d",
         response_code);
-  }
+  } */
 
   // Remember to clean up your mess
+  curl_multi_cleanup(multiHandler);
   curl_easy_cleanup(curlHandler);
 
   // Pass the chain onto the next response body filter
