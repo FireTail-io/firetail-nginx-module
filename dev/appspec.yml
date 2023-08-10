@@ -1,0 +1,84 @@
+openapi: 3.0.1
+info:
+  title: Firetail Nginx Module Example
+  version: "0.1"
+paths:
+  /:
+    get:
+      summary: Returns an index.html
+      responses:
+        "200":
+          description: An index.html file
+          content:
+            text/plain: {}
+  /health:
+    get:
+      summary: Returns the status of the server
+      responses:
+        "200":
+          $ref: "#/components/responses/Healthy"
+  /notfound:
+    get:
+      summary: Returns a mock 404 response
+      responses:
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /unhealthy:
+    get:
+      summary: Returns a mock 400 response
+      responses:
+        "500":
+          $ref: "#/components/responses/Unhealthy"
+  /health-proxy:
+    get:
+      summary: Returns the status of the server
+      responses:
+        "200":
+          $ref: "#/components/responses/Healthy"
+  /notfound-proxy:
+    get:
+      summary: Returns a mock 404 response
+      responses:
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /unhealthy-proxy:
+    get:
+      summary: Returns a mock 400 response
+      responses:
+        "500":
+          $ref: "#/components/responses/Unhealthy"
+components:
+  responses:
+    Healthy:
+      description: A mocked response from a /health endpoint on a healthy service
+      content:
+        text/plain:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              message:
+                type: string
+                enum: ["I'm healthy! 💖"]
+    Unhealthy:
+      description: A mocked response from a /health endpoint on an unhealthy service
+      content:
+        text/plain:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              message:
+                type: string
+                enum: ["I'm unhealthy! 🤒"]
+    NotFound:
+      description: A mocked 404 response
+      content:
+        text/plain:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              message:
+                type: string
+                enum: ["Not found"]
