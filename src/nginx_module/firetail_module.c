@@ -34,32 +34,6 @@ static void *CreateFiretailMainConfig(ngx_conf_t *configuration_object) {
   ngx_str_t firetail_api_token = ngx_string("");
   http_main_config->FiretailApiToken = firetail_api_token;
 
-  void *validator_module =
-      dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
-  if (validator_module == NULL) {
-    ngx_log_error(NGX_LOG_ERR, configuration_object->log, 0,
-                  "Failed to open validator.so: %s", dlerror());
-    exit(1);
-  }
-
-  char *error;
-  ValidateBodyFunc request_body_validator =
-      (ValidateBodyFunc)dlsym(validator_module, "ValidateRequestBody");
-  if ((error = dlerror()) != NULL) {
-    ngx_log_error(NGX_LOG_ERR, configuration_object->log, 0,
-                  "Failed to load ValidateRequestBody: %s", error);
-    exit(1);
-  }
-  http_main_config->RequestBodyValidator = request_body_validator;
-  ValidateBodyFunc response_body_validator =
-      (ValidateBodyFunc)dlsym(validator_module, "ValidateResponseBody");
-  if ((error = dlerror()) != NULL) {
-    ngx_log_error(NGX_LOG_ERR, configuration_object->log, 0,
-                  "Failed to load ValidateRequestBody: %s", error);
-    exit(1);
-  }
-  http_main_config->ResponseBodyValidator = response_body_validator;
-
   return http_main_config;
 }
 

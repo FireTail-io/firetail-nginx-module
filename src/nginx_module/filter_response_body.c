@@ -77,6 +77,35 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     return kNextResponseBodyFilter(request, chain_head);
   }
 
+  // If it does contain the last buffer, we can validate it with our go lib.
+  // NOTE: I'm currently loading this dynamic module in every time we need to
+  // call it. If I do it once at startup, it would just hang when I call the
+  // response body validator _sometimes_. Couldn't figure out why. Creating the
+  // middleware on the go side of things every time will be very inefficient.
+  void *validator_module =
+      dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
+  if (validator_module == NULL) {
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Failed to open validator.so: %s", dlerror());
+    exit(1);
+  }
+  ValidateBodyFunc response_body_validator =
+      (ValidateBodyFunc)dlsym(validator_module, "ValidateResponseBody");
+  char *error;
+  if ((error = dlerror()) != NULL) {
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Failed to load ValidateRequestBody: %s", error);
+    exit(1);
+  }
+  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                "Validating response body...");
+  int validation_result =
+      response_body_validator(ctx->response_body, ctx->response_body_size);
+  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                "Validation result: %d", validation_result);
+
+  dlclose(validator_module);
+
   // Piece together a JSON object
   // TODO: optimise the JSON generation process
   // {
@@ -240,13 +269,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                   "log to Firetail.");
     return kNextResponseBodyFilter(request, chain_head);
   }
-
-  ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                "Validating the response body with Golang...");
-  int validation_result = main_config->ResponseBodyValidator(
-      ctx->response_body, ctx->response_body_size);
-  ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                "Validation result: %d", validation_result);
 
   // Add the headers to the request
   curl_easy_setopt(curlHandler, CURLOPT_HTTPHEADER, curl_headers);
