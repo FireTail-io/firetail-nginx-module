@@ -197,13 +197,13 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // Curl the Firetail logging API
   // TODO: replace this with multi curl for non-blocking requests
   CURLM *multiHandler = curl_multi_init();
-  int still_running;
-  //CURLMsg *msg = NULL;
-  //CURLcode return_code = 0;
-  //int msgs_left = 0;
-  //int http_status_code;
-  //const char *szUrl;
   CURL *curlHandler = curl_easy_init();
+
+  int still_running;
+  CURLMsg *msg = NULL;
+  CURLcode return_code = 0;
+  int msgs_left = 0;
+  int http_status_code;
 
   if (curlHandler == NULL) {
     return kNextResponseBodyFilter(request, chain_head);
@@ -275,7 +275,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   /* if there are still transfers, loop! */
   } while(still_running);
 
-  /* while ((msg = curl_multi_info_read(multiHandler, &msgs_left))) {
+  while ((msg = curl_multi_info_read(multiHandler, &msgs_left))) {
     if (msg->msg == CURLMSG_DONE) {
       curlHandler = msg->easy_handle;
       return_code = msg->data.result;
@@ -290,15 +290,13 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       }
 
       http_status_code = 0;
-      szUrl = NULL;
       
       curl_easy_getinfo(curlHandler, CURLINFO_RESPONSE_CODE, &http_status_code);
-      curl_easy_getinfo(curlHandler, CURLINFO_PRIVATE, &szUrl);
 
       if (http_status_code == 200) {
         ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "200 OK for %s\n",
-                szUrl);
+                "200 OK for Firetail Backend\n",
+                NULL);
       } else {
         ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
                 "Request to Firetail logging API failed with status code: %d\n",
@@ -313,7 +311,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
             msg->msg);
     }
 
-  } */
+  }
 
   // If it err'd, log; otherwise we got a response (which might still be a
   // non-2xx status code - so check it)
@@ -328,11 +326,11 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
         NGX_LOG_DEBUG, request->connection->log, 0,
         "Status code from POST request to Firetail /logs/bulk endpoint: %d",
         response_code);
-  } */
+  } 
 
   // Remember to clean up your mess
   curl_easy_cleanup(curlHandler);
-  curl_multi_cleanup(multiHandler);
+  curl_multi_cleanup(multiHandler); */
 
   // Pass the chain onto the next response body filter
   return kNextResponseBodyFilter(request, chain_head);
