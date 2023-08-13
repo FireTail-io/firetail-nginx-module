@@ -252,12 +252,11 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // We're making a POST request to the /logs/bulk endpoint/
   curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
   curl_easy_setopt(curlHandler, CURLOPT_URL,
-                   "https://api.logging.eu-west-1.sandbox.firetail.app/logs/bulk");
+                   "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);
   // CURLcode res = curl_easy_perform(curlHandler);
-
   curl_multi_perform(multiHandler, &still_running);
 
   do {
@@ -295,7 +294,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
       if (http_status_code == 200) {
         ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "200 OK for Firetail Backend\n",
+                "Successfully sent with 200 OK from Firetail Backend\n",
                 NULL);
       } else {
         ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
@@ -310,27 +309,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
             "error: after curl_multi_info_read(), CURLMsg=%d\n",
             msg->msg);
     }
-
   }
-
-  // If it err'd, log; otherwise we got a response (which might still be a
-  // non-2xx status code - so check it)
-  /* if (res != CURLE_OK) {
-    ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                  "POST request to Firetail logging API failed: %s",
-                  curl_easy_strerror(res));
-  } else {
-    int response_code;
-    curl_easy_getinfo(curlHandler, CURLINFO_RESPONSE_CODE, &response_code);
-    ngx_log_error(
-        NGX_LOG_DEBUG, request->connection->log, 0,
-        "Status code from POST request to Firetail /logs/bulk endpoint: %d",
-        response_code);
-  } 
-
-  // Remember to clean up your mess
-  curl_easy_cleanup(curlHandler);
-  curl_multi_cleanup(multiHandler); */
 
   // Pass the chain onto the next response body filter
   return kNextResponseBodyFilter(request, chain_head);
