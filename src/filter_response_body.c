@@ -10,7 +10,7 @@ size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
   return size * nmemb;
 }
 
-#define MAX_WAIT_MSECS 30*100 /* max wait 30 secs */
+#define MAX_WAIT_MSECS 30 * 100 /* max wait 30 secs */
 
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
@@ -264,15 +264,13 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     int res = curl_multi_wait(multiHandler, NULL, 0, MAX_WAIT_MSECS, &numfs);
     if (res != CURLM_OK) {
       ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-              "error: curl_multi_wait() return %d\n",
-              res);
+                    "error: curl_multi_wait() return %d\n", res);
       return EXIT_FAILURE;
-
     }
 
     curl_multi_perform(multiHandler, &still_running);
-  /* if there are still transfers, loop! */
-  } while(still_running);
+    /* if there are still transfers, loop! */
+  } while (still_running);
 
   while ((msg = curl_multi_info_read(multiHandler, &msgs_left))) {
     if (msg->msg == CURLMSG_DONE) {
@@ -280,34 +278,34 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       return_code = msg->data.result;
       if (return_code != CURLE_OK) {
         ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-         "CURL error code: %d\n",
-         msg->data.result);
+                      "CURL error code: %d\n", msg->data.result);
 
-	curl_multi_remove_handle(multiHandler, curlHandler);
-	curl_easy_cleanup(curlHandler);
-	continue;
+        curl_multi_remove_handle(multiHandler, curlHandler);
+        curl_easy_cleanup(curlHandler);
+        continue;
       }
 
       http_status_code = 0;
-      
+
       curl_easy_getinfo(curlHandler, CURLINFO_RESPONSE_CODE, &http_status_code);
 
       if (http_status_code == 200) {
         ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "Successfully sent with 200 OK from Firetail Backend\n",
-                NULL);
+                      "Successfully sent with 200 OK from Firetail Backend\n",
+                      NULL);
       } else {
-        ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                "Request to Firetail logging API failed with status code: %d\n",
-                http_status_code);
+        ngx_log_error(
+            NGX_LOG_DEBUG, request->connection->log, 0,
+            "Request to Firetail logging API failed with status code: %d\n",
+            http_status_code);
       }
 
       curl_multi_remove_handle(multiHandler, curlHandler);
       curl_easy_cleanup(curlHandler);
     } else {
       ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-            "error: after curl_multi_info_read(), CURLMsg=%d\n",
-            msg->msg);
+                    "error: after curl_multi_info_read(), CURLMsg=%d\n",
+                    msg->msg);
     }
   }
 
