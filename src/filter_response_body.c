@@ -134,7 +134,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
              strlen((char *)ctx->server));
   ngx_memcpy(full_uri + strlen("http://") + strlen((char *)ctx->server),
              request->unparsed_uri.data, request->unparsed_uri.len);
-  *(full_uri + strlen("http://") + strlen((char *)ctx->server) + request->unparsed_uri.len) = '\0';
+  *(full_uri + strlen("http://") + strlen((char *)ctx->server) +
+    request->unparsed_uri.len) = '\0';
   json_object *request_uri = json_object_new_string(full_uri);
   json_object_object_add(request_object, "uri", request_uri);
 
@@ -234,7 +235,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     ngx_memcpy(x_ft_api_key + strlen("x-ft-api-key: "),
                main_config->FiretailApiToken.data,
                main_config->FiretailApiToken.len);
-    *(x_ft_api_key + strlen("x-ft-api-key: ") + main_config->FiretailApiToken.len) = '\0';
+    *(x_ft_api_key + strlen("x-ft-api-key: ") +
+      main_config->FiretailApiToken.len) = '\0';
     curl_headers = curl_slist_append(curl_headers, x_ft_api_key);
   } else {
     ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
