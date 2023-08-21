@@ -39,6 +39,7 @@ COPY --from=build-c /tmp/nginx-${NGINX_VERSION}/objs/* /etc/nginx/modules/
 
 # An image for local dev with a custom nginx.conf and index.html
 FROM firetail-nginx as firetail-nginx-dev
+COPY dev/appspec.yml /etc/nginx/appspec.yml
 COPY dev/nginx.conf /etc/nginx/nginx.conf
 COPY dev/index.html /usr/share/nginx/html/
 CMD ["nginx-debug", "-g", "daemon off;"]
