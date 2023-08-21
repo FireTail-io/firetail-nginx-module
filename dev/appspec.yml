@@ -47,12 +47,38 @@ paths:
       responses:
         "500":
           $ref: "#/components/responses/Unhealthy"
+  /profile/{username}:
+    get:
+      summary: Returns a user's profile
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            description: The username of the user whose profile should be returned
+            type: string
+            minLength: 3
+            maxLength: 20
+      responses:
+        "200":
+          description: A user's profile
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  username:
+                    type: string
+                  friends:
+                    type: integer
+                    minimum: 0
 components:
   responses:
     Healthy:
       description: A mocked response from a /health endpoint on a healthy service
       content:
-        text/plain:
+        application/json:
           schema:
             type: object
             additionalProperties: false
@@ -63,7 +89,7 @@ components:
     Unhealthy:
       description: A mocked response from a /health endpoint on an unhealthy service
       content:
-        text/plain:
+        application/json:
           schema:
             type: object
             additionalProperties: false
@@ -74,11 +100,11 @@ components:
     NotFound:
       description: A mocked 404 response
       content:
-        text/plain:
+        application/json:
           schema:
             type: object
             additionalProperties: false
             properties:
               message:
                 type: string
-                enum: ["Not found"]
+                enum: ["Not Found 🤷"]
