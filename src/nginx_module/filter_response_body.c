@@ -89,20 +89,39 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                   "Failed to open validator.so: %s", dlerror());
     exit(1);
   }
-  ValidateBodyFunc response_body_validator =
-      (ValidateBodyFunc)dlsym(validator_module, "ValidateResponseBody");
+
+  CreateMiddlewareFunc create_middleware =
+      (CreateMiddlewareFunc)dlsym(validator_module, "CreateMiddleware");
   char *error;
   if ((error = dlerror()) != NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Failed to load ValidateRequestBody: %s", error);
+                  "Failed to load CreateMiddleware: %s", error);
     exit(1);
   }
+
+  int create_middleware_result = create_middleware(
+      "/etc/nginx/appspec.yml", strlen("/etc/nginx/appspec.yml"));
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Validating response body...");
-  int validation_result =
-      response_body_validator(ctx->response_body, ctx->response_body_size);
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Validation result: %d", validation_result);
+                "Create middleware result: %d", create_middleware_result);
+  if (create_middleware_result == 1) {
+    ValidateResponseBody response_body_validator =
+        (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
+    if ((error = dlerror()) != NULL) {
+      ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                    "Failed to load ValidateRequestBody: %s", error);
+      exit(1);
+    }
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Validating response body...");
+    struct ValidateResponseBody_return validation_result =
+        response_body_validator(ctx->response_body, ctx->response_body_size,
+                                request->unparsed_uri.data,
+                                request->unparsed_uri.len, ctx->status_code);
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Validation result: %d", validation_result.r0);
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Validation response body: %s", validation_result.r1);
+  }
 
   dlclose(validator_module);
 
