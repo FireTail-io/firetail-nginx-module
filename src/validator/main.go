@@ -6,6 +6,10 @@ import (
 	"net/http"
 	"unsafe"
 
+	"bytes"
+	"io"
+	"net/http/httptest"
+
 	firetail "github.com/FireTail-io/firetail-go-lib/middlewares/http"
 )
 
@@ -50,13 +54,45 @@ func ValidateRequestBody(bodyCharPtr unsafe.Pointer, bodyLength C.int) C.int {
 }
 
 //export ValidateResponseBody
-func ValidateResponseBody(bodyCharPtr unsafe.Pointer, bodyLength C.int) C.int {
-	log.Println("Hello from Go's ValidateResponseBody!")
-	slice := C.GoBytes(bodyCharPtr, bodyLength)
-	bodyString := string(slice)
-	log.Println("Response body length:", bodyLength)
-	log.Println("Response body in Go:", bodyString)
-	return 1
+func ValidateResponseBody(bodyCharPtr unsafe.Pointer, bodyLength C.int, pathCharPtr unsafe.Pointer, pathLength C.int, statusCode C.int) (C.int, *C.char) {
+	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
+	pathSlice := C.GoBytes(pathCharPtr, pathLength)
+
+	// Create a handler returning the response body and status code from nginx
+	myHandler := &stubHandler{
+		responseCode:  int(statusCode),
+		responseBytes: bodySlice,
+	}
+
+	// Create our middleware instance with the stub handler
+	myMiddleware := firetailMiddleware(myHandler)
+
+	// Create a local response writer to record what the middleware says we should respond with
+	localResponseWriter := httptest.NewRecorder()
+
+	// Serve the request to the middlware
+	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
+		"GET", string(pathSlice),
+		io.NopCloser(bytes.NewBuffer([]byte{})),
+	))
+
+	// If the response code or body differs after being passed through the middleware then we'll just infer it doesn't
+	// match the spec
+	middlewareResponseBodyBytes, err := io.ReadAll(localResponseWriter.Body)
+	response := C.CString(string(middlewareResponseBodyBytes))
+	if err != nil {
+		log.Println("Failed to read response body bytes from middleware, err:", err.Error())
+		return 0, response
+	}
+	if localResponseWriter.Code != int(statusCode) {
+		log.Printf("Middleware altered status code from %d to %d", statusCode, localResponseWriter.Code)
+		return 0, response
+	}
+	if string(middlewareResponseBodyBytes) != string(bodySlice) {
+		log.Printf("Middleware altered response body, original: %s, new: %s", string(bodySlice), string(middlewareResponseBodyBytes))
+		return 0, response
+	}
+	return 1, response
 }
 
 //export ValidateRequestHeaders
