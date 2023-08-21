@@ -15,21 +15,17 @@ var firetailMiddleware func(next http.Handler) http.Handler
 // Creates our middleware instance with the provided OpenAPI spec and Firetail API key
 //
 //export CreateMiddleware
-func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int, apiTokenBytes unsafe.Pointer, apiTokenLength C.int) C.int {
+func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int) C.int {
 	log.Println("Loading OpenAPI spec in Go...")
 
 	specLocationSlice := C.GoBytes(specLocationBytes, specLocationLength)
 	specLocation := string(specLocationSlice)
 	log.Println("OpenAPI spec location:", specLocation)
 
-	apiTokenSlice := C.GoBytes(apiTokenBytes, apiTokenLength)
-	apiToken := string(apiTokenSlice)
-	log.Println("Received API token of length", len(apiToken))
-
 	var err error
 	firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
 		OpenapiSpecPath:          specLocation,
-		LogsApiToken:             apiToken,
+		LogsApiToken:             "",
 		LogsApiUrl:               "",
 		DebugErrs:                true,
 		EnableRequestValidation:  true,
