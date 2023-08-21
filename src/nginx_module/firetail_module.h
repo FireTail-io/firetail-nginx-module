@@ -3,7 +3,15 @@
 
 #include <ngx_http.h>
 
-typedef int (*ValidateBodyFunc)(void*, int);
+typedef int (*CreateMiddlewareFunc)(void*, int);
+
+struct ValidateResponseBody_return {
+  int r0;
+  char* r1;
+};
+typedef struct ValidateResponseBody_return (*ValidateResponseBody)(void*, int,
+                                                                   void*, int,
+                                                                   int);
 
 // This config struct will hold our API key
 typedef struct {
