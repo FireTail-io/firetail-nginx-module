@@ -251,16 +251,15 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // We're making a POST request to the /logs/bulk endpoint/
   curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
-//  curl_easy_setopt(curlHandler, CURLOPT_URL,
-//                   "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
   curl_easy_setopt(curlHandler, CURLOPT_URL,
-                   "http://localhost:4567");
+                   "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);
   curl_multi_perform(multiHandler, &still_running);
 
   // removing handler will incur performance penalty
+  // we do cleanups
   curl_easy_cleanup(curlHandler);
 
   // Pass the chain onto the next response body filter
