@@ -2,3 +2,5 @@ nginx-*
 vcpkg
 .vscode
 **/.DS_Store
+src/validator/firetail-validator.so
+src/validator/firetail-validator.h

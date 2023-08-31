@@ -16,6 +16,17 @@ import (
 // Will hold our Firetail middleware in Go memory
 var firetailMiddleware func(next http.Handler) http.Handler
 
+//export DemoPrint
+func DemoPrint(specLocationBytes unsafe.Pointer, specLocationLength C.int) C.int {
+        log.Println("Running demoprint")
+
+        specLocationSlice := C.GoBytes(specLocationBytes, specLocationLength)
+        specLocation := string(specLocationSlice)
+        log.Println("spec data:", specLocation)
+
+	return 1
+}
+
 // Creates our middleware instance with the provided OpenAPI spec and Firetail API key
 //
 //export CreateMiddleware
@@ -54,7 +65,26 @@ func ValidateRequestBody(bodyCharPtr unsafe.Pointer, bodyLength C.int) C.int {
 }
 
 //export ValidateResponseBody
-func ValidateResponseBody(bodyCharPtr unsafe.Pointer, bodyLength C.int, pathCharPtr unsafe.Pointer, pathLength C.int, statusCode C.int) (C.int, *C.char) {
+func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C.int, bodyCharPtr unsafe.Pointer, bodyLength C.int, pathCharPtr unsafe.Pointer, pathLength C.int, statusCode C.int) (C.int, *C.char) {
+        log.Println("Running ValidResponseBody...")
+
+        specLocationSlice := C.GoBytes(specLocationBytes, specLocationLength)
+        specLocation := string(specLocationSlice)
+
+        var err error
+        firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
+                OpenapiSpecData:          specLocation,
+                LogsApiToken:             "",
+                LogsApiUrl:               "",
+                DebugErrs:                true,
+                EnableRequestValidation:  true,
+                EnableResponseValidation: true,
+        })
+        if err != nil {
+                log.Println("Failed to initialise Firetail middleware, err:", err.Error())
+                return 0, nil
+        }
+
 	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
 	pathSlice := C.GoBytes(pathCharPtr, pathLength)
 

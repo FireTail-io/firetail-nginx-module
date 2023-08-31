@@ -9,13 +9,14 @@ struct ValidateResponseBody_return {
   int r0;
   char* r1;
 };
-typedef struct ValidateResponseBody_return (*ValidateResponseBody)(void*, int,
+typedef struct ValidateResponseBody_return (*ValidateResponseBody)(u_char *, int, void*, int,
                                                                    void*, int,
                                                                    int);
 
 // This config struct will hold our API key
 typedef struct {
   ngx_str_t FiretailApiToken;  // TODO: this should probably be a *ngx_str_t
+  ngx_str_t FiretailAppSpec;
 } FiretailMainConfig;
 
 // The header and body filters of the filter that was added just before ours.

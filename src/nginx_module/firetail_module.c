@@ -33,6 +33,26 @@ static void *CreateFiretailMainConfig(ngx_conf_t *configuration_object) {
 
   ngx_str_t firetail_api_token = ngx_string("");
   http_main_config->FiretailApiToken = firetail_api_token;
+ 
+  // load appspec schema
+  FILE *schema;
+  char str[8192];
+
+  printf("Loading AppSpec Schema...\n");
+
+  schema = fopen("/usr/local/nginx/appspec.yml","r");
+  if(schema == NULL)
+  {
+     printf("Error! count not load schema");
+     exit(1);
+  }
+
+  while(fgets(str, sizeof(schema), schema))
+  fclose(schema);
+
+  ngx_str_t spec = ngx_string(str);
+
+  http_main_config->FiretailAppSpec = spec;
 
   return http_main_config;
 }

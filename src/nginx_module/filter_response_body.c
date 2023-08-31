@@ -5,6 +5,8 @@
 #include "filter_response_body.h"
 #include "firetail_module.h"
 
+typedef int (*simple_demo_function)(char *, int);
+
 size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
                                 void *userp) {
   return size * nmemb;
@@ -77,13 +79,70 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     return kNextResponseBodyFilter(request, chain_head);
   }
 
+/*  FILE *schema;
+  char str[8192];
+
+  schema = fopen("/usr/local/nginx/appspec.yml","r");
+  if(schema == NULL)
+  {
+     printf("Error! count not load schema");   
+     exit(1);             
+  }
+   
+  while(fgets(str, 8192, schema))
+
+  fclose(schema);
+  */
+  FiretailMainConfig *main_config =
+      ngx_http_get_module_main_conf(request, ngx_firetail_module);
+
+  void *validator_module = dlopen("/usr/local/nginx/modules/firetail-validator.so", RTLD_LAZY);
+  if (!validator_module) {
+     return NGX_ERROR;
+  } 
+
+  ValidateResponseBody response_body_validator =
+      (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
+  char *error;
+  if ((error = dlerror()) != NULL) {
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Failed to load ValidateRequestBody: %s", error);
+    exit(1);
+  }
+  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                "Validating response body...");
+  struct ValidateResponseBody_return validation_result =
+      response_body_validator(main_config->FiretailAppSpec.data, main_config->FiretailAppSpec.len, ctx->response_body, ctx->response_body_size,
+                              request->unparsed_uri.data,
+                              request->unparsed_uri.len, ctx->status_code);
+  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                "Validation result: %d", validation_result.r0);
+  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                "Validation response body: %s", validation_result.r1);
+
+/*  simple_demo_function data = (simple_demo_function)dlsym(validator_module, "DemoPrint");
+  char *error;
+  if ((error = dlerror()) != NULL) {
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Failed to load DemoPrint: %s", error);
+    exit(1);
+  }
+  
+  int results = data(str, strlen(str));
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+              "Success running the module with %d", results);
+*/
+
+  dlclose(validator_module);
+
   // If it does contain the last buffer, we can validate it with our go lib.
   // NOTE: I'm currently loading this dynamic module in every time we need to
   // call it. If I do it once at startup, it would just hang when I call the
   // response body validator _sometimes_. Couldn't figure out why. Creating the
   // middleware on the go side of things every time will be very inefficient.
+  /*
   void *validator_module =
-      dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
+      dlopen("/usr/local/nginx/modules/firetail-validator.so", RTLD_LAZY);
   if (validator_module == NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Failed to open validator.so: %s", dlerror());
@@ -100,7 +159,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   }
 
   int create_middleware_result = create_middleware(
-      "/etc/nginx/appspec.yml", strlen("/etc/nginx/appspec.yml"));
+      "/usr/local/nginx/appspec.yml", strlen("/usr/local/nginx/appspec.yml"));
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Create middleware result: %d", create_middleware_result);
   if (create_middleware_result == 1) {
@@ -121,9 +180,9 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                   "Validation result: %d", validation_result.r0);
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Validation response body: %s", validation_result.r1);
-  }
+  } 
 
-  dlclose(validator_module);
+  dlclose(validator_module); */
 
   // Piece together a JSON object
   // TODO: optimise the JSON generation process
@@ -273,8 +332,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // The headers also need to provide the Firetail API key
   // TODO: check this wayyyyy earlier so we don't wastefully generate JSON etc.
-  FiretailMainConfig *main_config =
-      ngx_http_get_module_main_conf(request, ngx_firetail_module);
+  //FiretailMainConfig *main_config =
+  //    ngx_http_get_module_main_conf(request, ngx_firetail_module);
   if (main_config->FiretailApiToken.len > 0) {
     char *x_ft_api_key =
         ngx_palloc(request->pool, strlen("x-ft-api-key: ") +
@@ -303,8 +362,11 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // We're making a POST request to the /logs/bulk endpoint/
   curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
+  //curl_easy_setopt(curlHandler, CURLOPT_URL,
+  //                 "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
+
   curl_easy_setopt(curlHandler, CURLOPT_URL,
-                   "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
+                   "http://localhost:4567");
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);
