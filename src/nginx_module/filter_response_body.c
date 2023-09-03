@@ -1,6 +1,7 @@
 #include <ngx_core.h>
 #include <curl/curl.h>
 #include <json-c/json.h>
+// #include <jsonschema-c/instance_validator.h>
 #include "filter_context.h"
 #include "filter_response_body.h"
 #include "firetail_module.h"
@@ -71,6 +72,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
     // Update the ctx with the new updated body
     ctx->response_body = updated_response_body;
+
+    ngx_pfree(request->pool, updated_response_body);
   }
 
   // If it doesn't contain the last buffer of the response body, pass everything
@@ -79,27 +82,58 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     return kNextResponseBodyFilter(request, chain_head);
   }
 
-/*  FILE *schema;
-  char str[8192];
-
-  schema = fopen("/usr/local/nginx/appspec.yml","r");
-  if(schema == NULL)
-  {
-     printf("Error! count not load schema");   
-     exit(1);             
-  }
-   
-  while(fgets(str, 8192, schema))
-
-  fclose(schema);
-  */
   FiretailMainConfig *main_config =
       ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
-  void *validator_module = dlopen("/usr/local/nginx/modules/firetail-validator.so", RTLD_LAZY);
+  /* test using jsonschema-c
+  struct json_object *jobj;
+  struct json_object *jschema;
+
+  char *str = "[ \
+        { \
+                \"id\": 16, \
+                \"name\" : \"ptest\", \
+                \"tags\": [\"hi\", \"hi1\"], \
+                \"dimensions\": { \
+                        \"length\": 15, \
+                        \"width\": 10, \
+                        \"height\": 7 \
+                } \
+        }, \
+        { \
+                \"id\": 18, \
+                \"tags\": [\"hi\", \"hi1\", \"hi2\", \"hi3\"], \
+                \"name\":\"pamine\" \
+        } \
+  ]";
+
+  char *schema =
+      ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
+  ngx_memcpy(schema,
+             main_config->FiretailAppSpec.data,
+             main_config->FiretailAppSpec.len);
+
+  jobj = json_tokener_parse(str);
+  jschema = json_tokener_parse(schema);
+
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+              "obj from str:\n---\n%s\n---\n",
+  json_object_to_json_string_ext(jobj, JSON_C_TO_STRING_SPACED |
+  JSON_C_TO_STRING_PRETTY)); ngx_log_debug(NGX_LOG_DEBUG,
+  request->connection->log, 0, "obj from str:\n---\n%s\n---\n",
+  json_object_to_json_string_ext(jschema, JSON_C_TO_STRING_SPACED |
+  JSON_C_TO_STRING_PRETTY)); int result = json_validate_instance(jobj, jschema);
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+            "Status %d\n", result);
+
+  // end of testing jsonschema-c
+  */
+
+  void *validator_module =
+      dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
   if (!validator_module) {
-     return NGX_ERROR;
-  } 
+    return NGX_ERROR;
+  }
 
   ValidateResponseBody response_body_validator =
       (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
@@ -111,8 +145,16 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   }
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Validating response body...");
+
+  char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
+  ngx_memcpy(schema, main_config->FiretailAppSpec.data,
+             main_config->FiretailAppSpec.len);
+
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
+                schema);
   struct ValidateResponseBody_return validation_result =
-      response_body_validator(main_config->FiretailAppSpec.data, main_config->FiretailAppSpec.len, ctx->response_body, ctx->response_body_size,
+      response_body_validator(schema, strlen(schema), ctx->response_body,
+                              ctx->response_body_size,
                               request->unparsed_uri.data,
                               request->unparsed_uri.len, ctx->status_code);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
@@ -120,20 +162,29 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Validation response body: %s", validation_result.r1);
 
-/*  simple_demo_function data = (simple_demo_function)dlsym(validator_module, "DemoPrint");
-  char *error;
-  if ((error = dlerror()) != NULL) {
+  ngx_pfree(request->pool, schema);
+
+  dlclose(validator_module);
+
+  /* demo function to benchmark read/write function of DemoPrint
+  simple_demo_function data = (simple_demo_function)dlsym(validator_module,
+  "DemoPrint"); char *error; if ((error = dlerror()) != NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Failed to load DemoPrint: %s", error);
     exit(1);
   }
-  
-  int results = data(str, strlen(str));
+
+  char *schema =
+      ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
+  ngx_memcpy(schema,
+             main_config->FiretailAppSpec.data,
+             main_config->FiretailAppSpec.len);
+
+  int results = data(schema, strlen(schema));
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
               "Success running the module with %d", results);
-*/
-
-  dlclose(validator_module);
+  // end of demo function
+  */
 
   // If it does contain the last buffer, we can validate it with our go lib.
   // NOTE: I'm currently loading this dynamic module in every time we need to
@@ -180,7 +231,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                   "Validation result: %d", validation_result.r0);
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Validation response body: %s", validation_result.r1);
-  } 
+  }
 
   dlclose(validator_module); */
 
@@ -243,6 +294,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
              request->unparsed_uri.data, request->unparsed_uri.len);
   *(full_uri + strlen("http://") + strlen((char *)ctx->server) +
     request->unparsed_uri.len) = '\0';
+
   json_object *request_uri = json_object_new_string(full_uri);
   json_object_object_add(request_object, "uri", request_uri);
 
@@ -308,11 +360,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   CURLM *multiHandler = curl_multi_init();
   CURL *curlHandler = curl_easy_init();
 
-  int still_running;
-  CURLMsg *msg = NULL;
-  CURLcode return_code = 0;
-  int msgs_left = 0;
-  int http_status_code;
+  int still_running = 0;
 
   if (curlHandler == NULL) {
     return kNextResponseBodyFilter(request, chain_head);
@@ -332,7 +380,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // The headers also need to provide the Firetail API key
   // TODO: check this wayyyyy earlier so we don't wastefully generate JSON etc.
-  //FiretailMainConfig *main_config =
+  // FiretailMainConfig *main_config =
   //    ngx_http_get_module_main_conf(request, ngx_firetail_module);
   if (main_config->FiretailApiToken.len > 0) {
     char *x_ft_api_key =
@@ -345,6 +393,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     *(x_ft_api_key + strlen("x-ft-api-key: ") +
       main_config->FiretailApiToken.len) = '\0';
     curl_headers = curl_slist_append(curl_headers, x_ft_api_key);
+
+    ngx_pfree(request->pool, x_ft_api_key);
   } else {
     ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
                   "FIRETAIL_API_KEY environment variable unset. Not sending "
@@ -362,66 +412,15 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // We're making a POST request to the /logs/bulk endpoint/
   curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
-  //curl_easy_setopt(curlHandler, CURLOPT_URL,
-  //                 "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
-
   curl_easy_setopt(curlHandler, CURLOPT_URL,
-                   "http://localhost:4567");
+                   "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);
   // CURLcode res = curl_easy_perform(curlHandler);
   curl_multi_perform(multiHandler, &still_running);
 
-  do {
-    int numfs = 0;
-    int res = curl_multi_wait(multiHandler, NULL, 0, MAX_WAIT_MSECS, &numfs);
-    if (res != CURLM_OK) {
-      ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                    "error: curl_multi_wait() return %d\n", res);
-      return EXIT_FAILURE;
-    }
-
-    curl_multi_perform(multiHandler, &still_running);
-    /* if there are still transfers, loop! */
-  } while (still_running);
-
-  while ((msg = curl_multi_info_read(multiHandler, &msgs_left))) {
-    if (msg->msg == CURLMSG_DONE) {
-      curlHandler = msg->easy_handle;
-      return_code = msg->data.result;
-      if (return_code != CURLE_OK) {
-        ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                      "CURL error code: %d\n", msg->data.result);
-
-        curl_multi_remove_handle(multiHandler, curlHandler);
-        curl_easy_cleanup(curlHandler);
-        continue;
-      }
-
-      http_status_code = 0;
-
-      curl_easy_getinfo(curlHandler, CURLINFO_RESPONSE_CODE, &http_status_code);
-
-      if (http_status_code == 200) {
-        ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                      "Successfully sent with 200 OK from Firetail Backend\n",
-                      NULL);
-      } else {
-        ngx_log_error(
-            NGX_LOG_DEBUG, request->connection->log, 0,
-            "Request to Firetail logging API failed with status code: %d\n",
-            http_status_code);
-      }
-
-      curl_multi_remove_handle(multiHandler, curlHandler);
-      curl_easy_cleanup(curlHandler);
-    } else {
-      ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                    "error: after curl_multi_info_read(), CURLMsg=%d\n",
-                    msg->msg);
-    }
-  }
+  ngx_pfree(request->pool, full_uri);
 
   // Pass the chain onto the next response body filter
   return kNextResponseBodyFilter(request, chain_head);

@@ -7,6 +7,8 @@
 #include "filter_response_body.h"
 #include "firetail_module.h"
 
+#define SIZE 16635
+
 ngx_http_output_header_filter_pt kNextHeaderFilter;
 ngx_http_output_body_filter_pt kNextResponseBodyFilter;
 ngx_http_request_body_filter_pt kNextRequestBodyFilter;
@@ -33,26 +35,36 @@ static void *CreateFiretailMainConfig(ngx_conf_t *configuration_object) {
 
   ngx_str_t firetail_api_token = ngx_string("");
   http_main_config->FiretailApiToken = firetail_api_token;
- 
+
   // load appspec schema
+  // schema file pointer
   FILE *schema;
-  char str[8192];
+
+  // initialize variables with an arbitary size
+  char data[SIZE];
+  char str[SIZE];
 
   printf("Loading AppSpec Schema...\n");
 
-  schema = fopen("/usr/local/nginx/appspec.yml","r");
-  if(schema == NULL)
-  {
-     printf("Error! count not load schema");
-     exit(1);
+  // open schema spec
+  schema = fopen("/etc/nginx/appspec.yml", "r");
+  if (schema == NULL) {
+    printf("Error! count not load schema");
+    exit(1);
   }
 
-  while(fgets(str, sizeof(schema), schema))
-  fclose(schema);
+  // resize data
+  while (fgets(str, SIZE, schema)) {
+    // concatenate the string with line termination \0
+    // at the end
+    strcat(data, str);
+  }
 
-  ngx_str_t spec = ngx_string(str);
+  ngx_str_t spec = ngx_string(data);
 
   http_main_config->FiretailAppSpec = spec;
+
+  fclose(schema);
 
   return http_main_config;
 }

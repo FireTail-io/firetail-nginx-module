@@ -9,7 +9,7 @@ struct ValidateResponseBody_return {
   int r0;
   char* r1;
 };
-typedef struct ValidateResponseBody_return (*ValidateResponseBody)(u_char *, int, void*, int,
+typedef struct ValidateResponseBody_return (*ValidateResponseBody)(char *, int, void*, int,
                                                                    void*, int,
                                                                    int);
 

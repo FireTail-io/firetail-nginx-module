@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"io"
 	"net/http/httptest"
+	_ "net/http/pprof"
 
 	firetail "github.com/FireTail-io/firetail-go-lib/middlewares/http"
 )
@@ -71,6 +72,8 @@ func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C
         specLocationSlice := C.GoBytes(specLocationBytes, specLocationLength)
         specLocation := string(specLocationSlice)
 
+	log.Println("Spec data: ", specLocation)
+
         var err error
         firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
                 OpenapiSpecData:          specLocation,
@@ -80,6 +83,7 @@ func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C
                 EnableRequestValidation:  true,
                 EnableResponseValidation: true,
         })
+
         if err != nil {
                 log.Println("Failed to initialise Firetail middleware, err:", err.Error())
                 return 0, nil
@@ -105,6 +109,12 @@ func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C
 		"GET", string(pathSlice),
 		io.NopCloser(bytes.NewBuffer([]byte{})),
 	))
+
+	// for profiling the CPU, uncomment this and run
+	// go tool pprof http://localhost:6060/debug/pprof/profile\?seconds\=30
+	/* go func() {
+	        log.Println(http.ListenAndServe("localhost:6060", nil))
+        }() */
 
 	// If the response code or body differs after being passed through the middleware then we'll just infer it doesn't
 	// match the spec
