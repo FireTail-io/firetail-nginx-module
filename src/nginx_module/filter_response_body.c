@@ -347,13 +347,17 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
   curl_easy_setopt(
       curlHandler, CURLOPT_URL,
-      "https://api.logging.eu-west-1.sandbox.firetail.app/logs/bulk");
+      "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);
   // CURLcode res = curl_easy_perform(curlHandler);
   curl_multi_perform(multiHandler, &still_running);
 
+  // remove handle
+  curl_multi_remove_handle(multiHandler, curlHandler);
+  // curl cleanup
+  curl_easy_cleanup(curlHandler);
   ngx_pfree(request->pool, full_uri);
 
   // Pass the chain onto the next response body filter
