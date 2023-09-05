@@ -17,17 +17,6 @@ import (
 // Will hold our Firetail middleware in Go memory
 var firetailMiddleware func(next http.Handler) http.Handler
 
-//export DemoPrint
-func DemoPrint(specLocationBytes unsafe.Pointer, specLocationLength C.int) C.int {
-        log.Println("Running demoprint")
-
-        specLocationSlice := C.GoBytes(specLocationBytes, specLocationLength)
-        specLocation := string(specLocationSlice)
-        log.Println("spec data:", specLocation)
-
-	return 1
-}
-
 // Creates our middleware instance with the provided OpenAPI spec and Firetail API key
 //
 //export CreateMiddleware
@@ -58,6 +47,7 @@ func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int
 //export ValidateRequestBody
 func ValidateRequestBody(bodyCharPtr unsafe.Pointer, bodyLength C.int) C.int {
 	log.Println("Hello from Go's ValidateRequestBody!")
+
 	slice := C.GoBytes(bodyCharPtr, bodyLength)
 	bodyString := string(slice)
 	log.Println("Request body length:", bodyLength)
@@ -66,17 +56,21 @@ func ValidateRequestBody(bodyCharPtr unsafe.Pointer, bodyLength C.int) C.int {
 }
 
 //export ValidateResponseBody
-func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C.int, bodyCharPtr unsafe.Pointer, bodyLength C.int, pathCharPtr unsafe.Pointer, pathLength C.int, statusCode C.int) (C.int, *C.char) {
+func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
+			  resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
+			  reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
+			  pathCharPtr unsafe.Pointer, pathLength C.int,
+			  statusCode C.int) (C.int, *C.char) {
+
         log.Println("Running ValidResponseBody...")
 
-        specLocationSlice := C.GoBytes(specLocationBytes, specLocationLength)
-        specLocation := string(specLocationSlice)
-
-	log.Println("Spec data: ", specLocation)
+        specSlice := C.GoBytes(specBytes, specLength)
+        spec := string(specSlice)
+	//log.Println("Spec data: ", spec)
 
         var err error
         firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
-                OpenapiSpecData:          specLocation,
+                OpenapiSpecData:          spec,
                 LogsApiToken:             "",
                 LogsApiUrl:               "",
                 DebugErrs:                true,
@@ -89,13 +83,14 @@ func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C
                 return 0, nil
         }
 
-	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
+	resBodySlice := C.GoBytes(resBodyCharPtr, resBodyLength)
+	reqBodySlice := C.GoBytes(reqBodyCharPtr, reqBodyLength)
 	pathSlice := C.GoBytes(pathCharPtr, pathLength)
 
 	// Create a handler returning the response body and status code from nginx
 	myHandler := &stubHandler{
 		responseCode:  int(statusCode),
-		responseBytes: bodySlice,
+		responseBytes: resBodySlice,
 	}
 
 	// Create our middleware instance with the stub handler
@@ -107,7 +102,7 @@ func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
 		"GET", string(pathSlice),
-		io.NopCloser(bytes.NewBuffer([]byte{})),
+		io.NopCloser(bytes.NewBuffer(reqBodySlice)),
 	))
 
 	// for profiling the CPU, uncomment this and run
@@ -120,6 +115,7 @@ func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C
 	// match the spec
 	middlewareResponseBodyBytes, err := io.ReadAll(localResponseWriter.Body)
 	response := C.CString(string(middlewareResponseBodyBytes))
+
 	if err != nil {
 		log.Println("Failed to read response body bytes from middleware, err:", err.Error())
 		return 0, response
@@ -128,8 +124,8 @@ func ValidateResponseBody(specLocationBytes unsafe.Pointer, specLocationLength C
 		log.Printf("Middleware altered status code from %d to %d", statusCode, localResponseWriter.Code)
 		return 0, response
 	}
-	if string(middlewareResponseBodyBytes) != string(bodySlice) {
-		log.Printf("Middleware altered response body, original: %s, new: %s", string(bodySlice), string(middlewareResponseBodyBytes))
+	if string(middlewareResponseBodyBytes) != string(resBodySlice) {
+		log.Printf("Middleware altered response body, original: %s, new: %s", string(resBodySlice), string(middlewareResponseBodyBytes))
 		return 0, response
 	}
 	return 1, response

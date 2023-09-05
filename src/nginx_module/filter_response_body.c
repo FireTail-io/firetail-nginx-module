@@ -1,12 +1,9 @@
 #include <ngx_core.h>
 #include <curl/curl.h>
 #include <json-c/json.h>
-// #include <jsonschema-c/instance_validator.h>
 #include "filter_context.h"
 #include "filter_response_body.h"
 #include "firetail_module.h"
-
-typedef int (*simple_demo_function)(char *, int);
 
 size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
                                 void *userp) {
@@ -85,50 +82,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   FiretailMainConfig *main_config =
       ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
-  /* test using jsonschema-c
-  struct json_object *jobj;
-  struct json_object *jschema;
-
-  char *str = "[ \
-        { \
-                \"id\": 16, \
-                \"name\" : \"ptest\", \
-                \"tags\": [\"hi\", \"hi1\"], \
-                \"dimensions\": { \
-                        \"length\": 15, \
-                        \"width\": 10, \
-                        \"height\": 7 \
-                } \
-        }, \
-        { \
-                \"id\": 18, \
-                \"tags\": [\"hi\", \"hi1\", \"hi2\", \"hi3\"], \
-                \"name\":\"pamine\" \
-        } \
-  ]";
-
-  char *schema =
-      ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
-  ngx_memcpy(schema,
-             main_config->FiretailAppSpec.data,
-             main_config->FiretailAppSpec.len);
-
-  jobj = json_tokener_parse(str);
-  jschema = json_tokener_parse(schema);
-
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-              "obj from str:\n---\n%s\n---\n",
-  json_object_to_json_string_ext(jobj, JSON_C_TO_STRING_SPACED |
-  JSON_C_TO_STRING_PRETTY)); ngx_log_debug(NGX_LOG_DEBUG,
-  request->connection->log, 0, "obj from str:\n---\n%s\n---\n",
-  json_object_to_json_string_ext(jschema, JSON_C_TO_STRING_SPACED |
-  JSON_C_TO_STRING_PRETTY)); int result = json_validate_instance(jobj, jschema);
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-            "Status %d\n", result);
-
-  // end of testing jsonschema-c
-  */
-
   void *validator_module =
       dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
   if (!validator_module) {
@@ -140,7 +93,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   char *error;
   if ((error = dlerror()) != NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Failed to load ValidateRequestBody: %s", error);
+                  "Failed to load ValidateResponseBody: %s", error);
     exit(1);
   }
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
@@ -150,41 +103,23 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   ngx_memcpy(schema, main_config->FiretailAppSpec.data,
              main_config->FiretailAppSpec.len);
 
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
-                schema);
+  //ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
+  //              schema);
   struct ValidateResponseBody_return validation_result =
       response_body_validator(schema, strlen(schema), ctx->response_body,
                               ctx->response_body_size,
+			      ctx->request_body,
+			      ctx->request_body_size,
                               request->unparsed_uri.data,
                               request->unparsed_uri.len, ctx->status_code);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Validation result: %d", validation_result.r0);
+                "Validation response result: %d", validation_result.r0);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Validation response body: %s", validation_result.r1);
+                "Validating response body: %s", validation_result.r1);
 
   ngx_pfree(request->pool, schema);
 
   dlclose(validator_module);
-
-  /* demo function to benchmark read/write function of DemoPrint
-  simple_demo_function data = (simple_demo_function)dlsym(validator_module,
-  "DemoPrint"); char *error; if ((error = dlerror()) != NULL) {
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Failed to load DemoPrint: %s", error);
-    exit(1);
-  }
-
-  char *schema =
-      ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
-  ngx_memcpy(schema,
-             main_config->FiretailAppSpec.data,
-             main_config->FiretailAppSpec.len);
-
-  int results = data(schema, strlen(schema));
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-              "Success running the module with %d", results);
-  // end of demo function
-  */
 
   // If it does contain the last buffer, we can validate it with our go lib.
   // NOTE: I'm currently loading this dynamic module in every time we need to
@@ -193,7 +128,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // middleware on the go side of things every time will be very inefficient.
   /*
   void *validator_module =
-      dlopen("/usr/local/nginx/modules/firetail-validator.so", RTLD_LAZY);
+      dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
   if (validator_module == NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Failed to open validator.so: %s", dlerror());
@@ -413,7 +348,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // We're making a POST request to the /logs/bulk endpoint/
   curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
   curl_easy_setopt(curlHandler, CURLOPT_URL,
-                   "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk");
+                   "https://api.logging.eu-west-1.sandbox.firetail.app/logs/bulk");
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);
