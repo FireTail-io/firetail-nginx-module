@@ -103,15 +103,13 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   ngx_memcpy(schema, main_config->FiretailAppSpec.data,
              main_config->FiretailAppSpec.len);
 
-  //ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
-  //              schema);
+  // ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
+  //               schema);
   struct ValidateResponseBody_return validation_result =
-      response_body_validator(schema, strlen(schema), ctx->response_body,
-                              ctx->response_body_size,
-			      ctx->request_body,
-			      ctx->request_body_size,
-                              request->unparsed_uri.data,
-                              request->unparsed_uri.len, ctx->status_code);
+      response_body_validator(
+          schema, strlen(schema), ctx->response_body, ctx->response_body_size,
+          ctx->request_body, ctx->request_body_size, request->unparsed_uri.data,
+          request->unparsed_uri.len, ctx->status_code);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Validation response result: %d", validation_result.r0);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
@@ -347,8 +345,9 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // We're making a POST request to the /logs/bulk endpoint/
   curl_easy_setopt(curlHandler, CURLOPT_CUSTOMREQUEST, "POST");
-  curl_easy_setopt(curlHandler, CURLOPT_URL,
-                   "https://api.logging.eu-west-1.sandbox.firetail.app/logs/bulk");
+  curl_easy_setopt(
+      curlHandler, CURLOPT_URL,
+      "https://api.logging.eu-west-1.sandbox.firetail.app/logs/bulk");
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);

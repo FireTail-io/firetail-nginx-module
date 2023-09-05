@@ -9,11 +9,8 @@ struct ValidateResponseBody_return {
   int r0;
   char* r1;
 };
-typedef struct ValidateResponseBody_return (*ValidateResponseBody)(char*, int,
-                                                                   void*, int,
-                                                                   void*, int, 
-								   void*, int,
-                                                                   int);
+typedef struct ValidateResponseBody_return (*ValidateResponseBody)(
+    char*, int, void*, int, void*, int, void*, int, int);
 
 // This config struct will hold our API key
 typedef struct {
