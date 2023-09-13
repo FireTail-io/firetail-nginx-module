@@ -201,11 +201,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   CURLM *multiHandler = curl_multi_init();
   CURL *curlHandler = curl_easy_init();
 
-  int still_running;
-  CURLMsg *msg = NULL;
-  CURLcode return_code = 0;
-  int msgs_left = 0;
-  int http_status_code;
+  int still_running = 0;
 
   if (curlHandler == NULL) {
     return kNextResponseBodyFilter(request, chain_head);
@@ -260,58 +256,11 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // Do the request
   curl_multi_add_handle(multiHandler, curlHandler);
-  // CURLcode res = curl_easy_perform(curlHandler);
   curl_multi_perform(multiHandler, &still_running);
 
-  do {
-    int numfs = 0;
-    int res = curl_multi_wait(multiHandler, NULL, 0, MAX_WAIT_MSECS, &numfs);
-    if (res != CURLM_OK) {
-      ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                    "error: curl_multi_wait() return %d\n", res);
-      return EXIT_FAILURE;
-    }
-
-    curl_multi_perform(multiHandler, &still_running);
-    /* if there are still transfers, loop! */
-  } while (still_running);
-
-  while ((msg = curl_multi_info_read(multiHandler, &msgs_left))) {
-    if (msg->msg == CURLMSG_DONE) {
-      curlHandler = msg->easy_handle;
-      return_code = msg->data.result;
-      if (return_code != CURLE_OK) {
-        ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                      "CURL error code: %d\n", msg->data.result);
-
-        curl_multi_remove_handle(multiHandler, curlHandler);
-        curl_easy_cleanup(curlHandler);
-        continue;
-      }
-
-      http_status_code = 0;
-
-      curl_easy_getinfo(curlHandler, CURLINFO_RESPONSE_CODE, &http_status_code);
-
-      if (http_status_code == 200) {
-        ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                      "Successfully sent with 200 OK from Firetail Backend\n",
-                      NULL);
-      } else {
-        ngx_log_error(
-            NGX_LOG_DEBUG, request->connection->log, 0,
-            "Request to Firetail logging API failed with status code: %d\n",
-            http_status_code);
-      }
-
-      curl_multi_remove_handle(multiHandler, curlHandler);
-      curl_easy_cleanup(curlHandler);
-    } else {
-      ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
-                    "error: after curl_multi_info_read(), CURLMsg=%d\n",
-                    msg->msg);
-    }
-  }
+  // removing handler will incur performance penalty
+  // we do cleanups
+  curl_easy_cleanup(curlHandler);
 
   // Pass the chain onto the next response body filter
   return kNextResponseBodyFilter(request, chain_head);
