@@ -7,6 +7,7 @@ import (
 	"unsafe"
 
 	"bytes"
+	"strings"
 	"io"
 	"net/http/httptest"
 	_ "net/http/pprof"
@@ -45,28 +46,15 @@ func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int
 }
 
 //export ValidateRequestBody
-func ValidateRequestBody(bodyCharPtr unsafe.Pointer, bodyLength C.int) C.int {
+func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
+                         bodyCharPtr unsafe.Pointer, bodyLength C.int,
+		         pathCharPtr unsafe.Pointer, pathLength C.int) (C.int, *C.char) {
+
+	// remove this later
 	log.Println("Hello from Go's ValidateRequestBody!")
-
-	slice := C.GoBytes(bodyCharPtr, bodyLength)
-	bodyString := string(slice)
-	log.Println("Request body length:", bodyLength)
-	log.Println("Request body in Go:", bodyString)
-	return 1
-}
-
-//export ValidateResponseBody
-func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
-			  resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
-			  reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
-			  pathCharPtr unsafe.Pointer, pathLength C.int,
-			  statusCode C.int) (C.int, *C.char) {
-
-        log.Println("Running ValidResponseBody...")
 
         specSlice := C.GoBytes(specBytes, specLength)
         spec := string(specSlice)
-	//log.Println("Spec data: ", spec)
 
         var err error
         firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
@@ -75,6 +63,79 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
                 LogsApiUrl:               "",
                 DebugErrs:                true,
                 EnableRequestValidation:  true,
+                EnableResponseValidation: false,
+        })
+
+        if err != nil {
+                log.Println("Failed to initialise Firetail middleware, err:", err.Error())
+                return 0, nil
+        }
+
+        pathSlice := C.GoBytes(pathCharPtr, pathLength)
+        bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
+
+        // Create a fake handler 
+        myHandler := &stubHandler{
+                responseCode:  200,
+		responseBytes: []byte{},
+        }
+
+        // Create our middleware instance with the stub handler
+        myMiddleware := firetailMiddleware(myHandler)
+
+        // Create a local response writer to record what the middleware says we should respond with
+        localResponseWriter := httptest.NewRecorder()
+
+        // Serve the request to the middlware
+        myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
+                "GET", string(pathSlice),
+                io.NopCloser(bytes.NewBuffer(bodySlice)),
+        ))
+
+        // If the body differs after being passed through the middleware then we'll just infer it doesn't
+        // match the spec
+        //middlewareRequestBodyBytes, err := io.ReadAll(localResponseWriter.Body)
+	localRequest := strings.NewReader(string(bodySlice))
+	middlewareRequestBodyBytes, err := io.ReadAll(localRequest)
+
+        request := C.CString(string(middlewareRequestBodyBytes))
+
+	// just logging, can remove later
+	bodyString := string(bodySlice)
+	log.Println("Request body length:", bodyLength)
+	log.Println("Request body in Go:", bodyString)
+
+        if err != nil {
+                log.Println("Failed to read request body bytes from middleware, err:", err.Error())
+                return 0, request
+        }
+
+        if string(middlewareRequestBodyBytes) != string(bodySlice) {
+                log.Printf("Middleware altered request body, original: %s, new: %s", string(bodySlice), string(middlewareRequestBodyBytes))
+                return 0, request
+        }
+
+	return 1, request
+}
+
+//export ValidateResponseBody
+func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
+			  bodyCharPtr unsafe.Pointer, bodyLength C.int,
+			  pathCharPtr unsafe.Pointer, pathLength C.int,
+			  statusCode C.int) (C.int, *C.char) {
+
+        log.Println("Running ValidResponseBody...")
+
+        specSlice := C.GoBytes(specBytes, specLength)
+        spec := string(specSlice)
+
+        var err error
+        firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
+                OpenapiSpecData:          spec,
+                LogsApiToken:             "",
+                LogsApiUrl:               "",
+                DebugErrs:                true,
+                EnableRequestValidation:  false,
                 EnableResponseValidation: true,
         })
 
@@ -83,14 +144,13 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
                 return 0, nil
         }
 
-	resBodySlice := C.GoBytes(resBodyCharPtr, resBodyLength)
-	reqBodySlice := C.GoBytes(reqBodyCharPtr, reqBodyLength)
+	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
 	pathSlice := C.GoBytes(pathCharPtr, pathLength)
 
 	// Create a handler returning the response body and status code from nginx
 	myHandler := &stubHandler{
 		responseCode:  int(statusCode),
-		responseBytes: resBodySlice,
+		responseBytes: bodySlice,
 	}
 
 	// Create our middleware instance with the stub handler
@@ -102,7 +162,7 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
 		"GET", string(pathSlice),
-		io.NopCloser(bytes.NewBuffer(reqBodySlice)),
+		io.NopCloser(bytes.NewBuffer([]byte{})),
 	))
 
 	// for profiling the CPU, uncomment this and run
@@ -124,8 +184,8 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 		log.Printf("Middleware altered status code from %d to %d", statusCode, localResponseWriter.Code)
 		return 0, response
 	}
-	if string(middlewareResponseBodyBytes) != string(resBodySlice) {
-		log.Printf("Middleware altered response body, original: %s, new: %s", string(resBodySlice), string(middlewareResponseBodyBytes))
+	if string(middlewareResponseBodyBytes) != string(bodySlice) {
+		log.Printf("Middleware altered response body, original: %s, new: %s", string(bodySlice), string(middlewareResponseBodyBytes))
 		return 0, response
 	}
 	return 1, response

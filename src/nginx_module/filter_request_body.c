@@ -50,6 +50,44 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
 
     // Update the ctx with the new updated body
     ctx->request_body = updated_request_body;
+
+    // run the validation
+    FiretailMainConfig *main_config =
+        ngx_http_get_module_main_conf(request, ngx_firetail_module);
+
+    void *validator_module =
+        dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
+    if (!validator_module) {
+      return NGX_ERROR;
+    }
+
+    ValidateRequestBody request_body_validator =
+        (ValidateRequestBody)dlsym(validator_module, "ValidateRequestBody");
+    char *error;
+    if ((error = dlerror()) != NULL) {
+      ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                    "Failed to load ValidateRequestBody: %s", error);
+      exit(1);
+    }
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Validating request body...");
+
+    char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
+    ngx_memcpy(schema, main_config->FiretailAppSpec.data,
+               main_config->FiretailAppSpec.len);
+
+    struct ValidateRequestBody_return validation_result =
+        request_body_validator(
+            schema, strlen(schema), ctx->request_body, ctx->request_body_size,
+            request->unparsed_uri.data, request->unparsed_uri.len);
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Validation request result: %d", validation_result.r0);
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Validating request body: %s", validation_result.r1);
+
+    ngx_pfree(request->pool, schema);
+
+    dlclose(validator_module);
   }
 
   return kNextRequestBodyFilter(request, chain_head);
