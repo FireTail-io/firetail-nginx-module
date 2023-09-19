@@ -29,6 +29,38 @@ The Firetail NGINX Module will be receiving 401 responses as you have not yet co
 
 
 
+### Request Validation
+
+TODO
+
+
+
+### Response Validation
+
+To demonstrate response validation a `GET /profile/{username}` operation is defined in the provided [appspec.yml](./dev/appspec.yml), and two profiles are defined in the provided [nginx.conf](./dev/nginx.conf): `GET /profile/alice` and `GET /profile/bob`.
+
+Making a curl request to `GET /profile/alice` should yield the following result, which validates successfully against the provided appspec, as it returns only Alice's username and friend count:
+
+```bash
+curl localhost:8080/profile/alice
+```
+
+```json
+{"username":"alice", "friends": 123456789}
+```
+
+Making a curl request to `GET /profile/bob` will yield a different result, as the response body defined in our nginx.conf erroneously includes Bob's address. This does not validate against our appspec, so the response body is overwritten by the Firetail middleware, protecting Bob from having his personally identifiable information disclosed by our faulty application:
+
+```bash
+curl localhost:8080/profile/bob
+```
+
+```json
+TODO
+```
+
+
+
 ### VSCode
 
 For local development with VSCode you'll probably want to download the nginx tarball matching the version you're developing for, and configure it:
