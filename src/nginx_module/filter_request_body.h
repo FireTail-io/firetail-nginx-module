@@ -6,5 +6,4 @@
 
 ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
                                     ngx_chain_t *chain_head);
-
 #endif

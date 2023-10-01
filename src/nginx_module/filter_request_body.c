@@ -2,6 +2,7 @@
 #include "filter_context.h"
 #include "filter_request_body.h"
 #include "firetail_module.h"
+#include "filter_firetail_send.h"
 
 ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
                                     ngx_chain_t *chain_head) {
@@ -85,10 +86,20 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Validating request body: %s", validation_result.r1);
 
+    // if validation is unsuccessful, return bad request
+    if (validation_result.r0 > 0) {
+      ngx_http_firetail_send(request, NULL, validation_result.r1);
+    }
+
     ngx_pfree(request->pool, schema);
 
     dlclose(validator_module);
+
+    //return ngx_http_firetail_send(request,
+    //                            ngx_http_filter_buffer(request,
+    //                            (char *)request->request_body), NULL);
   }
 
+  //return NGX_OK;
   return kNextRequestBodyFilter(request, chain_head);
 }

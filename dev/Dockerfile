@@ -14,7 +14,7 @@ RUN rm /dist/firetail-validator.h
 
 FROM debian:bullseye-slim AS build-c
 
-ENV NGINX_VERSION 1.24.0
+ENV NGINX_VERSION 1.25.1
 
 # Curl the tarball of the nginx version matching that of the container we want to modify
 RUN apt update && apt install -y curl
@@ -32,7 +32,7 @@ RUN cd /tmp/nginx-${NGINX_VERSION} && \
     make modules
 
 # Copy our dynamic module & its dependencies into the image for the nginx version we want to use
-FROM nginx:1.24.0 AS firetail-nginx
+FROM nginx:1.25.1 AS firetail-nginx
 RUN apt-get update && apt-get install -y libjson-c-dev
 COPY --from=build-golang /dist/* /etc/nginx/modules/
 COPY --from=build-c /tmp/nginx-${NGINX_VERSION}/objs/* /etc/nginx/modules/
