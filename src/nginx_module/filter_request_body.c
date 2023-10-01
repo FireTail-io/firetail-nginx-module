@@ -88,18 +88,19 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
 
     // if validation is unsuccessful, return bad request
     if (validation_result.r0 > 0) {
-      ngx_http_firetail_send(request, NULL, validation_result.r1);
+      return ngx_http_firetail_request(request, NULL, chain_head, validation_result.r1);
     }
+
+    // else continue request
+    return ngx_http_firetail_request(request,
+		              ngx_http_filter_buffer(request, validation_result.r1),
+			      chain_head,
+			      NULL);
 
     ngx_pfree(request->pool, schema);
 
     dlclose(validator_module);
-
-    //return ngx_http_firetail_send(request,
-    //                            ngx_http_filter_buffer(request,
-    //                            (char *)request->request_body), NULL);
   }
 
-  //return NGX_OK;
-  return kNextRequestBodyFilter(request, chain_head);
+  return NGX_OK;
 }
