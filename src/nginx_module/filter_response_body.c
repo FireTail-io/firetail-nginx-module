@@ -364,7 +364,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   ngx_pfree(request->pool, full_uri);
 
   // Pass the chain onto the next response body filter
-  //return kNextResponseBodyFilter(request, chain_head);
+  // return kNextResponseBodyFilter(request, chain_head);
   return ngx_http_firetail_send(
-    request, ngx_http_filter_buffer(request, validation_result.r1), NULL);
+      request, ngx_http_filter_buffer(request, validation_result.r1), NULL);
 }
