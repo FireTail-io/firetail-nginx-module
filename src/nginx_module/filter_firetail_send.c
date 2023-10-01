@@ -2,28 +2,43 @@
 #include <ngx_http.h>
 #include "filter_context.h"
 #include "firetail_module.h"
+#include <json-c/json.h>
 
 ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
                                  char *error) {
-  ngx_int_t rc;
+  //ngx_int_t rc;
   ngx_chain_t out;
+  struct json_object *jobj;
+  char *code;
 
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Start of firetail send", NULL);
 
   if (b == NULL) {
+    // if there is an spec validation error by sending out
+    // the error response gotten from the middleware
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0, "Buffer is null",
                   NULL);
 
-    // send out error
-    ngx_str_t content_type = ngx_string("application_json");
-    request->headers_out.content_type = content_type;
-    request->headers_out.status = NGX_HTTP_BAD_REQUEST;
+    // NOTE: Placeholder if we need to use middleware response as our proxy's response
+    // parse the middleware json response
+    jobj = json_tokener_parse(error);
+    // Get the string value in "code" json key
+    code = (char *)json_object_get_string(json_object_object_get(jobj, "code"));
 
+    // Set the middleware status code after converting string status code to integer
+    request->headers_out.status = ngx_atoi((u_char *)code, strlen(code)); 
+
+    //request->headers_out.status = NGX_HTTP_BAD_REQUEST;
+    ngx_str_t content_type = ngx_string("application/json");
+    request->headers_out.content_type = content_type;
+
+    // allocate buffer in pool
     b = ngx_calloc_buf(request->pool);
-    u_char *t = (u_char *)error;
-    b->pos = t;
-    b->last = t + strlen((char *)t);
+    // set the error as unsigned char
+    u_char *msg = (u_char *)error;
+    b->pos = msg;
+    b->last = msg + strlen((char *)msg);
     b->memory = 1;
 
     b->last_buf = 1;
@@ -47,6 +62,8 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
 
   if (rc == NGX_ERROR || rc > NGX_OK || request->header_only) {
     ngx_free(b->pos);
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Sending headers...", NULL);
     return rc;
   }
 
@@ -58,26 +75,31 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
 
 ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
                                     ngx_chain_t *chain_head, char *error) {
+  ngx_chain_t out;
+
   if (b == NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Buffer for REQUEST is null", NULL);
 
-    ngx_str_t content_type = ngx_string("application_json");
+    ngx_str_t content_type = ngx_string("application/json");
     request->headers_out.content_type = content_type;
     request->headers_out.status = NGX_HTTP_BAD_REQUEST;
 
     b = ngx_calloc_buf(request->pool);
-    u_char *t = (u_char *)error;
-    b->pos = t;
-    b->last = t + strlen((char *)t);
+    u_char *msg = (u_char *)error;
+    b->pos = msg;
+    b->last = msg + strlen((char *)msg);
     b->memory = 1;
 
     b->last_buf = 1;
   }
 
+  out.buf = b;
+  out.next = NULL;
+
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Sending next REQUEST body", NULL);
-  return kNextRequestBodyFilter(request, chain_head);
+  return kNextRequestBodyFilter(request, &out);
 }
 
 ngx_buf_t *ngx_http_filter_buffer(ngx_http_request_t *request,

@@ -123,9 +123,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   dlclose(validator_module);
 
-  return ngx_http_firetail_send(
-      request, ngx_http_filter_buffer(request, validation_result.r1), NULL);
-
   // If it does contain the last buffer, we can validate it with our go lib.
   // NOTE: I'm currently loading this dynamic module in every time we need to
   // call it. If I do it once at startup, it would just hang when I call the
@@ -367,6 +364,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   ngx_pfree(request->pool, full_uri);
 
   // Pass the chain onto the next response body filter
-  // return kNextResponseBodyFilter(request, chain_head);
-  return NGX_OK;
+  //return kNextResponseBodyFilter(request, chain_head);
+  return ngx_http_firetail_send(
+    request, ngx_http_filter_buffer(request, validation_result.r1), NULL);
 }

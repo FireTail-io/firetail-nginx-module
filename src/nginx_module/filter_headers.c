@@ -68,5 +68,9 @@ ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
     }
   }
 
+  request->main_filter_need_in_memory = 1;
+  request->allow_ranges = 0;
+
   return NGX_OK;
+  //return kNextHeaderFilter(request);
 }
