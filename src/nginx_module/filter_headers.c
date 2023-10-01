@@ -69,5 +69,4 @@ ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
   }
 
   return NGX_OK;
-  //return kNextHeaderFilter(request);
 }
