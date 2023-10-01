@@ -6,7 +6,7 @@
 
 ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
                                  char *error) {
-  //ngx_int_t rc;
+  // ngx_int_t rc;
   ngx_chain_t out;
   struct json_object *jobj;
   char *code;
@@ -20,16 +20,17 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0, "Buffer is null",
                   NULL);
 
-    // NOTE: Placeholder if we need to use middleware response as our proxy's response
-    // parse the middleware json response
+    // NOTE: Placeholder if we need to use middleware response as our proxy's
+    // response parse the middleware json response
     jobj = json_tokener_parse(error);
     // Get the string value in "code" json key
     code = (char *)json_object_get_string(json_object_object_get(jobj, "code"));
 
-    // Set the middleware status code after converting string status code to integer
-    request->headers_out.status = ngx_atoi((u_char *)code, strlen(code)); 
+    // Set the middleware status code after converting string status code to
+    // integer
+    request->headers_out.status = ngx_atoi((u_char *)code, strlen(code));
 
-    //request->headers_out.status = NGX_HTTP_BAD_REQUEST;
+    // request->headers_out.status = NGX_HTTP_BAD_REQUEST;
     ngx_str_t content_type = ngx_string("application/json");
     request->headers_out.content_type = content_type;
 
