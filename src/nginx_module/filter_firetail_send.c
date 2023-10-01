@@ -4,7 +4,7 @@
 #include "firetail_module.h"
 
 ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
-                                 char *error, ngx_chain_t *chain) {
+                                 char *error) {
   ngx_int_t rc;
   ngx_chain_t out;
 
@@ -29,7 +29,7 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
     b->last_buf = 1;
   }
 
-  if (r == request->main) {
+  if (request == request->main) {
     request->headers_out.content_length_n = b->last - b->pos;
 
     if (request->headers_out.content_length) {
@@ -37,6 +37,8 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
       request->headers_out.content_length = NULL;
     }
   }
+
+  request->keepalive = 0;
 
   out.buf = b;
   out.next = NULL;
