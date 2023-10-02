@@ -5,6 +5,9 @@
 
 ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
+  if (ctx == NULL) {
+    return NGX_ERROR;
+  }
 
   // Copy the status code and server out of the headers
   ctx->status_code = request->headers_out.status;

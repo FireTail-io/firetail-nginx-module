@@ -22,6 +22,7 @@ typedef struct {
   long response_header_count;
   HTTPHeader *request_headers;
   HTTPHeader *response_headers;
+  ngx_uint_t done;
 } FiretailFilterContext;
 
 // This utility function will allow us to get the filter ctx whenever we need

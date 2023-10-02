@@ -2,17 +2,22 @@
 #include <ngx_http.h>
 #include "filter_context.h"
 #include "firetail_module.h"
+#include "filter_firetail_send.h"
 #include <json-c/json.h>
 
-ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
-                                 char *error) {
+ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, FiretailFilterContext *ctx,
+		                 ngx_buf_t *b, char *error) {
   ngx_int_t rc;
   ngx_chain_t out;
+  ngx_pool_cleanup_t *cln;
+
   struct json_object *jobj;
   char *code;
 
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Start of firetail send", NULL);
+
+  ctx->done = 1;
 
   if (b == NULL) {
     // if there is an spec validation error by sending out
@@ -20,7 +25,6 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0, "Buffer is null",
                   NULL);
 
-    // NOTE: Placeholder if we need to use middleware response as our proxy's
     // response parse the middleware json response
     jobj = json_tokener_parse(error);
     // Get the string value in "code" json key
@@ -45,6 +49,13 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
     b->last_buf = 1;
   }
 
+  cln = ngx_pool_cleanup_add(request->pool, 0);
+  if (cln == NULL) {
+      ngx_free(b->pos);
+      return ngx_http_filter_finalize_request(request, &ngx_firetail_module,
+                                             NGX_HTTP_INTERNAL_SERVER_ERROR);
+  } 
+
   if (request == request->main) {
     request->headers_out.content_length_n = b->last - b->pos;
 
@@ -55,9 +66,6 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
   }
 
   request->keepalive = 0;
-
-  out.buf = b;
-  out.next = NULL;
 
   rc = kNextHeaderFilter(request);
 
@@ -70,6 +78,12 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
 
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Sending next RESPONSE body", NULL);
+
+  cln->handler = ngx_http_firetail_cleanup;
+  cln->data = b->pos;
+
+  out.buf = b;
+  out.next = NULL;
 
   return kNextResponseBodyFilter(request, &out);
 }
@@ -84,7 +98,7 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
 
     ngx_str_t content_type = ngx_string("application/json");
     request->headers_out.content_type = content_type;
-    request->headers_out.status = NGX_HTTP_BAD_REQUEST;
+    request->headers_out.status = NGX_HTTP_FORBIDDEN;
 
     b = ngx_calloc_buf(request->pool);
     u_char *msg = (u_char *)error;
@@ -122,4 +136,9 @@ ngx_buf_t *ngx_http_filter_buffer(ngx_http_request_t *request,
   b->last_buf = 1;
 
   return b;
+}
+
+void ngx_http_firetail_cleanup(void *data)
+{
+    ngx_free(data);
 }

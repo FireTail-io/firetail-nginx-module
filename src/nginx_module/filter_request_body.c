@@ -94,7 +94,7 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
 
     // else continue request
     return ngx_http_firetail_request(
-        request, ngx_http_filter_buffer(request, validation_result.r1),
+        request, ngx_http_filter_buffer(request, (u_char *)validation_result.r1),
         chain_head, NULL);
 
     ngx_pfree(request->pool, schema);

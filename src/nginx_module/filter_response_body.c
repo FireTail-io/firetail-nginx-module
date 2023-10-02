@@ -19,9 +19,13 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // Get our context so we can store the response body data
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
-  if (ctx == NULL) {
-    return NGX_ERROR;
+  if (ctx == NULL || ctx->done) {
+    return kNextResponseBodyFilter(request, chain_head);
   }
+
+  /*if (ctx == NULL) {
+    return NGX_ERROR;
+  }*/
 
   // Determine the length of the response body chain we've been given, and if
   // the chain contains the last link
@@ -75,7 +79,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // If it doesn't contain the last buffer of the response body, pass everything
   // onto the next filter - we do not care.
   if (!chain_contains_last_link) {
-    return kNextResponseBodyFilter(request, chain_head);
+    //return kNextResponseBodyFilter(request, chain_head);
   }
 
   FiretailMainConfig *main_config =
@@ -118,7 +122,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // if validation result is not successful
   if (validation_result.r0 > 0) {
-    return ngx_http_firetail_send(request, NULL, validation_result.r1);
+    return ngx_http_firetail_send(request, ctx, NULL, validation_result.r1);
   }
 
   dlclose(validator_module);
@@ -366,5 +370,5 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // Pass the chain onto the next response body filter
   // return kNextResponseBodyFilter(request, chain_head);
   return ngx_http_firetail_send(
-      request, ngx_http_filter_buffer(request, validation_result.r1), NULL);
+      request, ctx, ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
 }
