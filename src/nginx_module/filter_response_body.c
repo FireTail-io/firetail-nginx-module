@@ -79,7 +79,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // If it doesn't contain the last buffer of the response body, pass everything
   // onto the next filter - we do not care.
   if (!chain_contains_last_link) {
-    //return kNextResponseBodyFilter(request, chain_head);
+    // return kNextResponseBodyFilter(request, chain_head);
   }
 
   FiretailMainConfig *main_config =
@@ -370,5 +370,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // Pass the chain onto the next response body filter
   // return kNextResponseBodyFilter(request, chain_head);
   return ngx_http_firetail_send(
-      request, ctx, ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
+      request, ctx,
+      ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
 }

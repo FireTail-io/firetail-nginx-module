@@ -5,8 +5,9 @@
 #include "filter_firetail_send.h"
 #include <json-c/json.h>
 
-ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, FiretailFilterContext *ctx,
-		                 ngx_buf_t *b, char *error) {
+ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
+                                 FiretailFilterContext *ctx, ngx_buf_t *b,
+                                 char *error) {
   ngx_int_t rc;
   ngx_chain_t out;
   ngx_pool_cleanup_t *cln;
@@ -51,10 +52,10 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, FiretailFilterCont
 
   cln = ngx_pool_cleanup_add(request->pool, 0);
   if (cln == NULL) {
-      ngx_free(b->pos);
-      return ngx_http_filter_finalize_request(request, &ngx_firetail_module,
-                                             NGX_HTTP_INTERNAL_SERVER_ERROR);
-  } 
+    ngx_free(b->pos);
+    return ngx_http_filter_finalize_request(request, &ngx_firetail_module,
+                                            NGX_HTTP_INTERNAL_SERVER_ERROR);
+  }
 
   if (request == request->main) {
     request->headers_out.content_length_n = b->last - b->pos;
@@ -138,7 +139,4 @@ ngx_buf_t *ngx_http_filter_buffer(ngx_http_request_t *request,
   return b;
 }
 
-void ngx_http_firetail_cleanup(void *data)
-{
-    ngx_free(data);
-}
+void ngx_http_firetail_cleanup(void *data) { ngx_free(data); }

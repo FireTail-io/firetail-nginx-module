@@ -75,5 +75,4 @@ ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
   request->allow_ranges = 0;
 
   return NGX_OK;
-  //return kNextHeaderFilter(request);
 }
