@@ -98,7 +98,7 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
 
     ngx_str_t content_type = ngx_string("application/json");
     request->headers_out.content_type = content_type;
-    request->headers_out.status = NGX_HTTP_FORBIDDEN;
+    request->headers_out.status = NGX_HTTP_BAD_REQUEST;
 
     b = ngx_calloc_buf(request->pool);
     u_char *msg = (u_char *)error;
