@@ -6,7 +6,7 @@
 
 ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
                                  char *error) {
-  // ngx_int_t rc;
+  ngx_int_t rc;
   ngx_chain_t out;
   struct json_object *jobj;
   char *code;
@@ -64,7 +64,7 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, ngx_buf_t *b,
   if (rc == NGX_ERROR || rc > NGX_OK || request->header_only) {
     ngx_free(b->pos);
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Sending headers...", NULL);
+                  "SENDING HEADERS...", NULL);
     return rc;
   }
 
