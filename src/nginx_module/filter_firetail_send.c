@@ -92,22 +92,60 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
 ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
                                     ngx_chain_t *chain_head, char *error) {
   ngx_chain_t out;
+  char *code;
+  struct json_object *jobj;
+  ngx_int_t     rc;
+
 
   if (b == NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Buffer for REQUEST is null", NULL);
 
+    FiretailFilterContext *ctx = GetFiretailFilterContext(request);
+
+    // bypass response validation because we no longer need
+    // to go through response validation
+    ctx->bypass_response = 1;
+    ctx->request_result = (u_char *)error;
+
+    // response parse the middleware json response
+    jobj = json_tokener_parse(error);
+    // Get the string value in "code" json key
+    code = (char *)json_object_get_string(json_object_object_get(jobj, "code"));
+
+    // return and finalize request early since we are not going to send
+    // it to upstream server
+    //return ngx_http_filter_finalize_request(request,
+    //		                     &ngx_firetail_module,
+    //                                 ngx_atoi((u_char *)code, strlen(code)));
     ngx_str_t content_type = ngx_string("application/json");
     request->headers_out.content_type = content_type;
-    request->headers_out.status = NGX_HTTP_BAD_REQUEST;
+    // convert "code" which is string to integer (status), example: 200
+    request->headers_out.status = ngx_atoi((u_char *)code, strlen(code));
+    request->keepalive = 0;
 
+    rc = ngx_http_send_header(request);
+    if (rc == NGX_ERROR || rc > NGX_OK || request->header_only) {
+        ngx_http_finalize_request(request, rc);
+        return NGX_DONE;
+    }
+
+    // allocate buffer in pool
     b = ngx_calloc_buf(request->pool);
+    // set the error as unsigned char
     u_char *msg = (u_char *)error;
     b->pos = msg;
     b->last = msg + strlen((char *)msg);
     b->memory = 1;
 
     b->last_buf = 1;
+
+    out.buf = b;
+    out.next = NULL;
+
+    rc = ngx_http_output_filter(request, &out);
+
+    ngx_http_finalize_request(request, rc);
   }
 
   out.buf = b;

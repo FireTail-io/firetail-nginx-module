@@ -13,6 +13,9 @@ size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
 
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
+
+  struct ValidateResponseBody_return validation_result;
+
   // Set the logging level to debug
   // TODO: remove
   request->connection->log->log_level = NGX_LOG_DEBUG;
@@ -22,6 +25,9 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   if (ctx == NULL || ctx->done) {
     return kNextResponseBodyFilter(request, chain_head);
   }
+
+  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                "bloody bypass %d", ctx->bypass_response);
 
   /*if (ctx == NULL) {
     return NGX_ERROR;
@@ -85,6 +91,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   FiretailMainConfig *main_config =
       ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
+  if (ctx->bypass_response == 0) {
   void *validator_module =
       dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
   if (!validator_module) {
@@ -100,22 +107,23 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     exit(1);
   }
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Validating response body...");
+              "Validating response body...");
 
   char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
   ngx_memcpy(schema, main_config->FiretailAppSpec.data,
-             main_config->FiretailAppSpec.len);
+           main_config->FiretailAppSpec.len);
 
   // ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
   //               schema);
-  struct ValidateResponseBody_return validation_result =
+  //struct ValidateResponseBody_return validation_result =
+    validation_result =
       response_body_validator(
           schema, strlen(schema), ctx->response_body, ctx->response_body_size,
           request->unparsed_uri.data, request->unparsed_uri.len,
           ctx->status_code, request->method_name.data,
           request->method_name.len);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Validation response result: %d", validation_result.r0);
+              "Validation response result: %d", validation_result.r0);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Validating response body: %s", validation_result.r1);
 
@@ -124,10 +132,12 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // if validation result is not successful
   if (validation_result.r0 > 0) {
     return ngx_http_firetail_send(request, ctx, NULL, validation_result.r1);
-  }
+  } 
 
   dlclose(validator_module);
-
+  } else {
+    validation_result.r1 = (char *)ctx->request_result;
+  }
   // If it does contain the last buffer, we can validate it with our go lib.
   // NOTE: I'm currently loading this dynamic module in every time we need to
   // call it. If I do it once at startup, it would just hang when I call the
@@ -370,7 +380,14 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // Pass the chain onto the next response body filter
   // return kNextResponseBodyFilter(request, chain_head);
-  return ngx_http_firetail_send(
-      request, ctx,
-      ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
+
+  if (ctx->bypass_response == 0) {
+    return ngx_http_firetail_send(
+        request, ctx,
+        ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
+  } else {
+    return ngx_http_firetail_send(
+        request, ctx,
+        ngx_http_filter_buffer(request, (u_char *)ctx->request_result), NULL);
+  }
 }
