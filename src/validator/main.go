@@ -50,7 +50,8 @@ func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int
 //export ValidateRequestBody
 func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
-	pathCharPtr unsafe.Pointer, pathLength C.int) (C.int, *C.char) {
+	pathCharPtr unsafe.Pointer, pathLength C.int,
+        methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
 
 	// remove this later
 	log.Println("Hello from Go's ValidateRequestBody!")
@@ -76,6 +77,7 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 
 	pathSlice := C.GoBytes(pathCharPtr, pathLength)
 	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
+	methodSlice := C.GoBytes(methodCharPtr, methodLength)
 
 	// Create a fake handler
 	myHandler := &stubHandler{
@@ -91,7 +93,7 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
-		"GET", string(pathSlice),
+		string(methodSlice), string(pathSlice),
 		io.NopCloser(bytes.NewBuffer(bodySlice)),
 	))
 
@@ -128,7 +130,8 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
-	statusCode C.int) (C.int, *C.char) {
+	statusCode C.int,
+	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
 
 	log.Println("Running ValidateResponseBody...")
 
@@ -152,6 +155,7 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 
 	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
 	pathSlice := C.GoBytes(pathCharPtr, pathLength)
+	methodSlice := C.GoBytes(methodCharPtr, methodLength)
 
 	// Create a handler returning the response body and status code from nginx
 	myHandler := &stubHandler{
@@ -167,7 +171,7 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
-		"GET", string(pathSlice),
+		string(methodSlice), string(pathSlice),
                 io.NopCloser(bytes.NewBuffer([]byte{})),
 	))
 

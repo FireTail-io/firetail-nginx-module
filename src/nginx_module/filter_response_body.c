@@ -112,7 +112,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       response_body_validator(schema, strlen(schema), ctx->response_body,
                               ctx->response_body_size,
                               request->unparsed_uri.data,
-                              request->unparsed_uri.len, ctx->status_code);
+                              request->unparsed_uri.len, ctx->status_code,
+			      request->method_name.data, request->method_name.len);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                 "Validation response result: %d", validation_result.r0);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
