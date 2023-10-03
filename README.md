@@ -56,7 +56,11 @@ curl localhost:8080/profile/bob
 ```
 
 ```json
-TODO
+{
+    "code": 500,
+    "title": "internal server error",
+    "detail": "the response's body did not match your appspec: response body doesn't match the schema: property \"address\" is unsupported\nSchema:\n  {\n    \"additionalProperties\": false,\n    \"properties\": {\n      \"friends\": {\n        \"minimum\": 0,\n        \"type\": \"integer\"\n      },\n      \"username\": {\n        \"type\": \"string\"\n      }\n    },\n    \"type\": \"object\"\n  }\n\nValue:\n  {\n    \"address\": \"Oh dear, this shouldn't be public!\",\n    \"friends\": 123456789,\n    \"username\": \"bob\"\n  }\n"
+}
 ```
 
 
