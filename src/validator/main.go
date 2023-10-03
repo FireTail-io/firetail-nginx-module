@@ -39,7 +39,7 @@ func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int
 	})
 	if err != nil {
 		log.Println("Failed to initialise Firetail middleware, err:", err.Error())
-	        // return 1 is error by convention
+		// return 1 is error by convention
 		return 1
 	}
 
@@ -188,20 +188,20 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 
 	if err != nil {
 		log.Println("Failed to read response body bytes from middleware, err:", err.Error())
-	        // return 1 is error by convention
+		// return 1 is error by convention
 		return 1, response
 	}
 	if localResponseWriter.Code != int(statusCode) {
 		log.Printf("Middleware altered status code from %d to %d", statusCode, localResponseWriter.Code)
-	        // return 1 is error by convention
+		// return 1 is error by convention
 		return 1, response
 	}
 	if string(middlewareResponseBodyBytes) != string(bodySlice) {
 		log.Printf("Middleware altered response body, original: %s, new: %s", string(bodySlice), string(middlewareResponseBodyBytes))
-	        // return 1 is error by convention
+		// return 1 is error by convention
 		return 1, response
 	}
-        // return 0 is success by convention
+	// return 0 is success by convention
 	return 0, response
 }
 
@@ -212,7 +212,7 @@ func ValidateRequestHeaders(headersCharPtr unsafe.Pointer, headersLength C.int) 
 	headersString := string(slice)
 	log.Println("Request headers length:", headersLength)
 	log.Println("Request headers in Go:", headersString)
-        // return 0 is success by convention
+	// return 0 is success by convention
 	return 0
 }
 
@@ -223,7 +223,7 @@ func ValidateResponseHeaders(headersCharPtr unsafe.Pointer, headersLength C.int)
 	headersString := string(slice)
 	log.Println("Response headers length:", headersLength)
 	log.Println("Response headers in Go:", headersString)
-        // return 0 is success by convention
+	// return 0 is success by convention
 	return 0
 }
 
