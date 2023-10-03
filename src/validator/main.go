@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http/httptest"
 	_ "net/http/pprof"
-	"strings"
 
 	firetail "github.com/FireTail-io/firetail-go-lib/middlewares/http"
 )
@@ -51,7 +50,7 @@ func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int
 func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
-        methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
+	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
 
 	// remove this later
 	log.Println("Hello from Go's ValidateRequestBody!")
@@ -80,9 +79,10 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	methodSlice := C.GoBytes(methodCharPtr, methodLength)
 
 	// Create a fake handler
+	placeholderResponse := []byte{}
 	myHandler := &stubHandler{
 		responseCode:  200,
-		responseBytes: []byte{},
+		responseBytes: placeholderResponse,
 	}
 
 	// Create our middleware instance with the stub handler
@@ -99,11 +99,9 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 
 	// If the body differs after being passed through the middleware then we'll just infer it doesn't
 	// match the spec
-	//middlewareRequestBodyBytes, err := io.ReadAll(localResponseWriter.Body)
-	localRequest := strings.NewReader(string(bodySlice))
-	middlewareRequestBodyBytes, err := io.ReadAll(localRequest)
+	middlewareResponseBodyBytes, err := io.ReadAll(localResponseWriter.Body)
 
-	request := C.CString(string(middlewareRequestBodyBytes))
+	response := C.CString(string(middlewareResponseBodyBytes))
 
 	// just logging, can remove later
 	bodyString := string(bodySlice)
@@ -113,17 +111,17 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	if err != nil {
 		log.Println("Failed to read request body bytes from middleware, err:", err.Error())
 		// return 1 is error by convention
-		return 1, request
+		return 1, response
 	}
 
-	if string(middlewareRequestBodyBytes) != string(bodySlice) {
-		log.Printf("Middleware altered request body, original: %s, new: %s", string(bodySlice), string(middlewareRequestBodyBytes))
-	        // return 1 is error by convention
-		return 1, request
+	if string(middlewareResponseBodyBytes) != string(placeholderResponse) {
+		log.Printf("Middleware altered response body, original: %s, new: %s", string(placeholderResponse), string(middlewareResponseBodyBytes))
+		// return 1 is error by convention
+		return 1, response
 	}
 
-        // return 0 is success by convention
-	return 0, request
+	// return 0 is success by convention
+	return 0, response
 }
 
 //export ValidateResponseBody
@@ -172,7 +170,7 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
 		string(methodSlice), string(pathSlice),
-                io.NopCloser(bytes.NewBuffer([]byte{})),
+		io.NopCloser(bytes.NewBuffer([]byte{})),
 	))
 
 	// for profiling the CPU, uncomment this and run
