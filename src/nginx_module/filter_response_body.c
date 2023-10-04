@@ -26,9 +26,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     return kNextResponseBodyFilter(request, chain_head);
   }
 
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "bloody bypass %d", ctx->bypass_response);
-
   /*if (ctx == NULL) {
     return NGX_ERROR;
   }*/

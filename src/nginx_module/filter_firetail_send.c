@@ -96,7 +96,6 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
   struct json_object *jobj;
   ngx_int_t     rc;
 
-
   if (b == NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Buffer for REQUEST is null", NULL);
@@ -146,6 +145,15 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
     rc = ngx_http_output_filter(request, &out);
 
     ngx_http_finalize_request(request, rc);
+  }
+
+  if (request == request->main) {
+    request->headers_out.content_length_n = b->last - b->pos;
+
+    if (request->headers_out.content_length) {
+      request->headers_out.content_length->hash = 0;
+      request->headers_out.content_length = NULL;
+    }
   }
 
   out.buf = b;
