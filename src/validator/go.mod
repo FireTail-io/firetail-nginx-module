@@ -17,5 +17,3 @@ require (
 )
 
 replace github.com/FireTail-io/firetail-go-lib => github.com/muhammadn/firetail-go-lib v0.0.0-20230929120111-feb58e27051a
-
-//replace github.com/FireTail-io/firetail-go-lib => ../../../../firetail-go-lib
