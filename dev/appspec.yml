@@ -109,6 +109,7 @@ paths:
                     type: string
   /proxy/profile/{username}/comment:
     post:
+      required: true
       summary: Post a comment on a user's profile
       requestBody:
         description: The comment to be added to the user's profile
@@ -117,6 +118,7 @@ paths:
           application/json:
             schema:
               type: object
+              required: ["comment"]
               additionalProperties: false
               properties:
                 comment:

@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"unsafe"
+	"encoding/json"
+	"strings"
 
 	"bytes"
 	"io"
@@ -50,7 +52,8 @@ func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int
 func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
-	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
+	methodCharPtr unsafe.Pointer, methodLength C.int,
+        headersCharPtr unsafe.Pointer, headersLength C.int) (C.int, *C.char) {
 
 	// remove this later
 	log.Println("Hello from Go's ValidateRequestBody!")
@@ -77,6 +80,12 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	pathSlice := C.GoBytes(pathCharPtr, pathLength)
 	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
 	methodSlice := C.GoBytes(methodCharPtr, methodLength)
+	headersSlice := C.GoBytes(headersCharPtr, headersLength)
+
+	var headers map[string][]string
+	if err := json.Unmarshal(headersSlice, &headers); err != nil {
+                panic(err)
+	}
 
 	// Create a fake handler
 	placeholderResponse := []byte{}
@@ -91,11 +100,18 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	// Create a local response writer to record what the middleware says we should respond with
 	localResponseWriter := httptest.NewRecorder()
 
+	mockRequest := httptest.NewRequest(
+                string(methodSlice), string(pathSlice),
+                io.NopCloser(bytes.NewBuffer(bodySlice)))
+
+	for k, v := range headers { 
+		// convert value (v) to comma-delimited values
+		// key is still as it is
+		mockRequest.Header.Add(k, strings.Join(v[:], ", "))
+        }
+
 	// Serve the request to the middlware
-	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
-		string(methodSlice), string(pathSlice),
-		io.NopCloser(bytes.NewBuffer(bodySlice)),
-	))
+	myMiddleware.ServeHTTP(localResponseWriter, mockRequest)
 
 	// If the body differs after being passed through the middleware then we'll just infer it doesn't
 	// match the spec

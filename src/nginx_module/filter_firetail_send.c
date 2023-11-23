@@ -94,17 +94,24 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
   ngx_chain_t out;
   char *code;
   struct json_object *jobj;
-  ngx_int_t     rc;
+  ngx_int_t rc;
+
+  FiretailFilterContext *ctx = GetFiretailFilterContext(request);
+
+  char empty_json[2] = "{}";
+  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                "INCOMING Request Body: %s, json %s", ctx->request_body, empty_json);
 
   if (b == NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Buffer for REQUEST is null", NULL);
 
-    FiretailFilterContext *ctx = GetFiretailFilterContext(request);
-
     // bypass response validation because we no longer need
     // to go through response validation
-    ctx->bypass_response = 1;
+    ctx->bypass_response = 0;
+    if (ctx->request_body || (char *)ctx->request_body != empty_json) {
+      ctx->bypass_response = 1;
+    }
     ctx->request_result = (u_char *)error;
 
     // response parse the middleware json response
@@ -114,9 +121,6 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
 
     // return and finalize request early since we are not going to send
     // it to upstream server
-    //return ngx_http_filter_finalize_request(request,
-    //		                     &ngx_firetail_module,
-    //                                 ngx_atoi((u_char *)code, strlen(code)));
     ngx_str_t content_type = ngx_string("application/json");
     request->headers_out.content_type = content_type;
     // convert "code" which is string to integer (status), example: 200
