@@ -87,6 +87,12 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   FiretailMainConfig *main_config =
       ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
+  // If it does contain the last buffer, we can validate it with our go lib.
+  // NOTE: I'm currently loading this dynamic module in every time we need to
+  // call it. If I do it once at startup, it would just hang when I call the
+  // response body validator _sometimes_. Couldn't figure out why. Creating the
+  // middleware on the go side of things every time will be very inefficient.
+
   if (ctx->bypass_response == 0) {
     void *validator_module =
         dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
@@ -132,54 +138,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   } else {
     validation_result.r1 = (char *)ctx->request_result;
   }
-  // If it does contain the last buffer, we can validate it with our go lib.
-  // NOTE: I'm currently loading this dynamic module in every time we need to
-  // call it. If I do it once at startup, it would just hang when I call the
-  // response body validator _sometimes_. Couldn't figure out why. Creating the
-  // middleware on the go side of things every time will be very inefficient.
-  /*
-  void *validator_module =
-      dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
-  if (validator_module == NULL) {
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Failed to open validator.so: %s", dlerror());
-    exit(1);
-  }
-
-  CreateMiddlewareFunc create_middleware =
-      (CreateMiddlewareFunc)dlsym(validator_module, "CreateMiddleware");
-  char *error;
-  if ((error = dlerror()) != NULL) {
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Failed to load CreateMiddleware: %s", error);
-    exit(1);
-  }
-
-  int create_middleware_result = create_middleware(
-      "/usr/local/nginx/appspec.yml", strlen("/usr/local/nginx/appspec.yml"));
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Create middleware result: %d", create_middleware_result);
-  if (create_middleware_result == 1) {
-    ValidateResponseBody response_body_validator =
-        (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
-    if ((error = dlerror()) != NULL) {
-      ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                    "Failed to load ValidateRequestBody: %s", error);
-      exit(1);
-    }
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Validating response body...");
-    struct ValidateResponseBody_return validation_result =
-        response_body_validator(ctx->response_body, ctx->response_body_size,
-                                request->unparsed_uri.data,
-                                request->unparsed_uri.len, ctx->status_code);
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Validation result: %d", validation_result.r0);
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Validation response body: %s", validation_result.r1);
-  }
-
-  dlclose(validator_module); */
 
   // Piece together a JSON object
   // TODO: optimise the JSON generation process

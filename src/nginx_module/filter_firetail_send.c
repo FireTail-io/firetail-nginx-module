@@ -5,6 +5,9 @@
 #include "filter_firetail_send.h"
 #include <json-c/json.h>
 
+/* reason this exists is that we want to send our module response to the user only when we have a response from the server to validate the request
+ Info here: https://mailman.nginx.org/pipermail/nginx-devel/2023-September/ARTW6X573LPVCRQJNZEWT33W4PFEKIPR.html
+*/
 ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
                                  FiretailFilterContext *ctx, ngx_buf_t *b,
                                  char *error) {
