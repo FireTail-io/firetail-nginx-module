@@ -14,24 +14,24 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
   }
 
   // get the header values
-  ngx_list_part_t            *part;
-  ngx_table_elt_t            *h;
-  ngx_uint_t                  i;
+  ngx_list_part_t *part;
+  ngx_table_elt_t *h;
+  ngx_uint_t i;
 
   part = &request->headers_in.headers.part;
   h = part->elts;
 
   json_object *log_root = json_object_new_object();
 
-  for (i = 0; ; i++) {
+  for (i = 0;; i++) {
     if (i >= part->nelts) {
-        if (part->next == NULL) {
-            break;
-        }
+      if (part->next == NULL) {
+        break;
+      }
 
-        part = part->next;
-        h = part->elts;
-        i = 0;
+      part = part->next;
+      h = part->elts;
+      i = 0;
     }
 
     json_object *jobj = json_object_new_string((char *)h[i].value.data);
@@ -43,8 +43,8 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
   }
 
   void *jvalue = (void *)json_object_to_json_string(log_root);
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-	  "json value %s", jvalue);
+  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0, "json value %s",
+                jvalue);
 
   // Determine the length of the request body chain we've been given
   long new_request_body_parts_size = 0;
@@ -88,7 +88,7 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
 
     if (ctx->request_body == NULL)
       ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "REQUEST BODY IS NULL");
+                    "REQUEST BODY IS NULL");
 
     // run the validation
     FiretailMainConfig *main_config =
@@ -119,8 +119,8 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
         request_body_validator(
             schema, strlen(schema), ctx->request_body, ctx->request_body_size,
             request->unparsed_uri.data, request->unparsed_uri.len,
-            request->method_name.data, request->method_name.len,
-	    jvalue, strlen(jvalue));
+            request->method_name.data, request->method_name.len, jvalue,
+            strlen(jvalue));
 
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Validation request result: %d", validation_result.r0);

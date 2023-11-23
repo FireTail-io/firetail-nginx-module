@@ -16,11 +16,8 @@ struct ValidateRequestBody_return {
   int r0;
   char* r1;
 };
-typedef struct ValidateRequestBody_return (*ValidateRequestBody)(char*, int,
-                                                                 void*, int,
-                                                                 void*, int,
-                                                                 void*, int,
-								 void*, int);
+typedef struct ValidateRequestBody_return (*ValidateRequestBody)(
+    char*, int, void*, int, void*, int, void*, int, void*, int);
 
 // This config struct will hold our API key
 typedef struct {
