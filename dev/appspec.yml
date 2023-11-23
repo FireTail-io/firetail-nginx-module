@@ -83,6 +83,7 @@ paths:
           application/json:
             schema:
               type: object
+              required: ["comment"]
               additionalProperties: false
               properties:
                 comment:
