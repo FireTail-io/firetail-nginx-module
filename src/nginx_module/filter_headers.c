@@ -42,11 +42,12 @@ ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
     }
   }
 
-  /*long int recorded_request_header_size = sizeof(recorded_request_header)/sizeof(recorded_request_header[0]);
+  /*long int recorded_request_header_size =
+  sizeof(recorded_request_header)/sizeof(recorded_request_header[0]);
   ctx->recorded_request_header = recorded_request_header;
   ctx->recorded_request_header_size = recorded_request_header_size;
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "header_size: %d", ctx->recorded_request_header_size); 
+                "header_size: %d", ctx->recorded_request_header_size);
 
   for (u_int i = 0; i < 4; i++) {
       HTTPHeader v_value = recorded_request_header[i];

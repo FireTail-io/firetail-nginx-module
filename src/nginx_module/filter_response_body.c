@@ -13,7 +13,6 @@ size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
 
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
-
   struct ValidateResponseBody_return validation_result;
 
   // Set the logging level to debug
@@ -89,49 +88,47 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
   if (ctx->bypass_response == 0) {
-  void *validator_module =
-      dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
-  if (!validator_module) {
-    return NGX_ERROR;
-  }
+    void *validator_module =
+        dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
+    if (!validator_module) {
+      return NGX_ERROR;
+    }
 
-  ValidateResponseBody response_body_validator =
-      (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
-  char *error;
-  if ((error = dlerror()) != NULL) {
+    ValidateResponseBody response_body_validator =
+        (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
+    char *error;
+    if ((error = dlerror()) != NULL) {
+      ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                    "Failed to load ValidateResponseBody: %s", error);
+      exit(1);
+    }
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Failed to load ValidateResponseBody: %s", error);
-    exit(1);
-  }
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-              "Validating response body...");
+                  "Validating response body...");
 
-  char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
-  ngx_memcpy(schema, main_config->FiretailAppSpec.data,
-           main_config->FiretailAppSpec.len);
+    char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
+    ngx_memcpy(schema, main_config->FiretailAppSpec.data,
+               main_config->FiretailAppSpec.len);
 
-  // ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
-  //               schema);
-  //struct ValidateResponseBody_return validation_result =
-    validation_result =
-      response_body_validator(
-          schema, strlen(schema), ctx->response_body, ctx->response_body_size,
-          request->unparsed_uri.data, request->unparsed_uri.len,
-          ctx->status_code, request->method_name.data,
-          request->method_name.len);
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-              "Validation response result: %d", validation_result.r0);
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Validating response body: %s", validation_result.r1);
+    // ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
+    //               schema);
+    // struct ValidateResponseBody_return validation_result =
+    validation_result = response_body_validator(
+        schema, strlen(schema), ctx->response_body, ctx->response_body_size,
+        request->unparsed_uri.data, request->unparsed_uri.len, ctx->status_code,
+        request->method_name.data, request->method_name.len);
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Validation response result: %d", validation_result.r0);
+    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+                  "Validating response body: %s", validation_result.r1);
 
-  ngx_pfree(request->pool, schema);
+    ngx_pfree(request->pool, schema);
 
-  // if validation result is not successful
-  if (validation_result.r0 > 0) {
-    return ngx_http_firetail_send(request, ctx, NULL, validation_result.r1);
-  } 
+    // if validation result is not successful
+    if (validation_result.r0 > 0) {
+      return ngx_http_firetail_send(request, ctx, NULL, validation_result.r1);
+    }
 
-  dlclose(validator_module);
+    dlclose(validator_module);
   } else {
     validation_result.r1 = (char *)ctx->request_result;
   }

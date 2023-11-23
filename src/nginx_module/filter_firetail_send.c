@@ -100,7 +100,8 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
 
   char empty_json[2] = "{}";
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "INCOMING Request Body: %s, json %s", ctx->request_body, empty_json);
+                "INCOMING Request Body: %s, json %s", ctx->request_body,
+                empty_json);
 
   if (b == NULL) {
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
@@ -129,8 +130,8 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
 
     rc = ngx_http_send_header(request);
     if (rc == NGX_ERROR || rc > NGX_OK || request->header_only) {
-        ngx_http_finalize_request(request, rc);
-        return NGX_DONE;
+      ngx_http_finalize_request(request, rc);
+      return NGX_DONE;
     }
 
     // allocate buffer in pool
