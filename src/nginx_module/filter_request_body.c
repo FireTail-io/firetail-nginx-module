@@ -42,9 +42,9 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
     json_object_object_add(log_root, (char *)h[i].key.data, array);
   }
 
-  void *jvalue = (void *)json_object_to_json_string(log_root);
+  void *h_json_string = (void *)json_object_to_json_string(log_root);
   ngx_log_error(NGX_LOG_ERR, request->connection->log, 0, "json value %s",
-                jvalue);
+                h_json_string);
 
   // Determine the length of the request body chain we've been given
   long new_request_body_parts_size = 0;
@@ -86,10 +86,6 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
     // Update the ctx with the new updated body
     ctx->request_body = updated_request_body;
 
-    if (ctx->request_body == NULL)
-      ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                    "REQUEST BODY IS NULL");
-
     // run the validation
     FiretailMainConfig *main_config =
         ngx_http_get_module_main_conf(request, ngx_firetail_module);
@@ -119,8 +115,8 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
         request_body_validator(
             schema, strlen(schema), ctx->request_body, ctx->request_body_size,
             request->unparsed_uri.data, request->unparsed_uri.len,
-            request->method_name.data, request->method_name.len, jvalue,
-            strlen(jvalue));
+            request->method_name.data, request->method_name.len, h_json_string,
+            strlen(h_json_string));
 
     ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
                   "Validation request result: %d", validation_result.r0);

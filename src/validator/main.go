@@ -106,7 +106,7 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 
 	for k, v := range headers { 
 		// convert value (v) to comma-delimited values
-		// key is still as it is
+                // key "k" is still as it is
 		mockRequest.Header.Add(k, strings.Join(v[:], ", "))
         }
 
