@@ -104,11 +104,11 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
         (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
     char *error;
     if ((error = dlerror()) != NULL) {
-      ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+      ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                     "Failed to load ValidateResponseBody: %s", error);
       exit(1);
     }
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Validating response body...");
 
     char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
@@ -122,9 +122,9 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
         schema, strlen(schema), ctx->response_body, ctx->response_body_size,
         request->unparsed_uri.data, request->unparsed_uri.len, ctx->status_code,
         request->method_name.data, request->method_name.len);
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Validation response result: %d", validation_result.r0);
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Validating response body: %s", validation_result.r1);
 
     ngx_pfree(request->pool, schema);
@@ -255,7 +255,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   json_object_object_add(response_object, "headers", response_headers);
 
   // Log it
-  ngx_log_error(
+  ngx_log_debug(
       NGX_LOG_DEBUG, request->connection->log, 0, "%s",
       json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
@@ -300,7 +300,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
     ngx_pfree(request->pool, x_ft_api_key);
   } else {
-    ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "FIRETAIL_API_KEY environment variable unset. Not sending "
                   "log to Firetail.");
     return kNextResponseBodyFilter(request, chain_head);

@@ -43,7 +43,7 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
   }
 
   void *h_json_string = (void *)json_object_to_json_string(log_root);
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0, "json value %s",
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "json value %s",
                 h_json_string);
 
   // Determine the length of the request body chain we've been given
@@ -100,11 +100,11 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
         (ValidateRequestBody)dlsym(validator_module, "ValidateRequestBody");
     char *error;
     if ((error = dlerror()) != NULL) {
-      ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+      ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                     "Failed to load ValidateRequestBody: %s", error);
       exit(1);
     }
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Validating request body...");
 
     char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
@@ -118,9 +118,9 @@ ngx_int_t FiretailRequestBodyFilter(ngx_http_request_t *request,
             request->method_name.data, request->method_name.len, h_json_string,
             strlen(h_json_string));
 
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Validation request result: %d", validation_result.r0);
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Validating request body: %s", validation_result.r1);
 
     // if validation is unsuccessful, return bad request

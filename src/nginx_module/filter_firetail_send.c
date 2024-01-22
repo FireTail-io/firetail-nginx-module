@@ -19,7 +19,7 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
   struct json_object *jobj;
   char *code;
 
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                 "Start of firetail send", NULL);
 
   ctx->done = 1;
@@ -27,7 +27,7 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
   if (b == NULL) {
     // if there is an spec validation error by sending out
     // the error response gotten from the middleware
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0, "Buffer is null",
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Buffer is null",
                   NULL);
 
     // response parse the middleware json response
@@ -76,12 +76,12 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
 
   if (rc == NGX_ERROR || rc > NGX_OK || request->header_only) {
     ngx_free(b->pos);
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "SENDING HEADERS...", NULL);
     return rc;
   }
 
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                 "Sending next RESPONSE body", NULL);
 
   cln->handler = ngx_http_firetail_cleanup;
@@ -103,12 +103,12 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
 
   char empty_json[2] = "{}";
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                 "INCOMING Request Body: %s, json %s", ctx->request_body,
                 empty_json);
 
   if (b == NULL) {
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Buffer for REQUEST is null", NULL);
 
     // bypass response validation because we no longer need
@@ -168,7 +168,7 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
   out.buf = b;
   out.next = NULL;
 
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                 "Sending next REQUEST body", NULL);
   return kNextRequestBodyFilter(request, &out);
 }
@@ -182,7 +182,7 @@ ngx_buf_t *ngx_http_filter_buffer(ngx_http_request_t *request,
     return NULL;
   }
 
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                 "Buffer is successful", NULL);
 
   b->pos = response;
