@@ -16,25 +16,19 @@ ngx_http_output_body_filter_pt kNextResponseBodyFilter;
 ngx_http_request_body_filter_pt kNextRequestBodyFilter;
 
 typedef struct {
-    ngx_int_t     status;
+  ngx_int_t status;
 } ngx_http_firetail_ctx_t;
 
-typedef struct {
-    ngx_array_t  *firetail;
-    ngx_flag_t    request_body;
-} ngx_http_firetail_loc_conf_t;
+static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *r);
+static void ngx_http_foo_body_handler(ngx_http_request_t *r);
+static ngx_int_t ngx_http_foo_handler(ngx_http_request_t *r);
 
-//static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *r);
-//static void ngx_http_foo_body_handler(ngx_http_request_t *r);
-//static ngx_int_t ngx_http_foo_handler(ngx_http_request_t *r);
-
-static ngx_int_t
-ngx_http_firetail_handler_internal(ngx_http_request_t *request)
-{
+static ngx_int_t ngx_http_firetail_handler_internal(
+    ngx_http_request_t *request) {
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-            "   ✅️✅️✅️HANDLER INTERNAL✅️✅️✅️");
+                "   ✅️✅️✅️HANDLER INTERNAL✅️✅️✅️");
 
-  ngx_chain_t  *chain_head;
+  ngx_chain_t *chain_head;
   chain_head = request->request_body->bufs;
 
   // Get our context so we can store the request body data
@@ -96,13 +90,12 @@ ngx_http_firetail_handler_internal(ngx_http_request_t *request)
       ngx_pcalloc(request->pool, new_request_body_size);
 
   // Copy the body read so far into ctx into our new updated_request_body
-  u_char *updated_request_body_i = ngx_copy(
-      updated_request_body, ctx->request_body, old_request_body_size);
+  u_char *updated_request_body_i =
+      ngx_copy(updated_request_body, ctx->request_body, old_request_body_size);
 
   // Iterate over the chain again and copy all of the buffers over to our new
   // request body char*
-  for (ngx_chain_t *current_chain_link = chain_head;
-       current_chain_link != NULL;
+  for (ngx_chain_t *current_chain_link = chain_head; current_chain_link != NULL;
        current_chain_link = current_chain_link->next) {
     long buffer_length =
         current_chain_link->buf->last - current_chain_link->buf->pos;
@@ -137,12 +130,11 @@ ngx_http_firetail_handler_internal(ngx_http_request_t *request)
   ngx_memcpy(schema, main_config->FiretailAppSpec.data,
              main_config->FiretailAppSpec.len);
 
-  struct ValidateRequestBody_return validation_result =
-      request_body_validator(
-          schema, strlen(schema), ctx->request_body, ctx->request_body_size,
-          request->unparsed_uri.data, request->unparsed_uri.len,
-          request->method_name.data, request->method_name.len, h_json_string,
-          strlen(h_json_string));
+  struct ValidateRequestBody_return validation_result = request_body_validator(
+      schema, strlen(schema), ctx->request_body, ctx->request_body_size,
+      request->unparsed_uri.data, request->unparsed_uri.len,
+      request->method_name.data, request->method_name.len, h_json_string,
+      strlen(h_json_string));
 
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                 "Validation request result: %d", validation_result.r0);
@@ -156,24 +148,22 @@ ngx_http_firetail_handler_internal(ngx_http_request_t *request)
 
   // else continue request
   return ngx_http_firetail_request(
-      request,
-      ngx_http_filter_buffer(request, (u_char *)validation_result.r1),
+      request, ngx_http_filter_buffer(request, (u_char *)validation_result.r1),
       chain_head, NULL);
 
   ngx_pfree(request->pool, schema);
 
   dlclose(validator_module);
 
-  return NGX_OK; 
+  return NGX_OK;
 }
 
-static void
-ngx_http_foo_body_handler(ngx_http_request_t *request)
-{
+static void ngx_http_foo_body_handler(ngx_http_request_t *request) {
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-            "	✅️✅️✅️RUNNING BODY HANDLER %s✅️✅️✅️", request->request_body);
+                "	✅️✅️✅️RUNNING BODY HANDLER %s✅️✅️✅️",
+                request->request_body);
 
-  ngx_http_firetail_ctx_t  *ctx;
+  ngx_http_firetail_ctx_t *ctx;
 
   ctx = ngx_http_get_module_ctx(request, ngx_firetail_module);
 
@@ -182,48 +172,46 @@ ngx_http_foo_body_handler(ngx_http_request_t *request)
   request->preserve_body = 1;
 
   request->write_event_handler = ngx_http_core_run_phases;
-  ngx_http_core_run_phases(request); 
+  ngx_http_core_run_phases(request);
 }
 
-static ngx_int_t
-ngx_http_foo_handler(ngx_http_request_t *r)
-{
-    ngx_int_t                    rc;
-    ngx_http_firetail_ctx_t       *ctx;
+static ngx_int_t ngx_http_foo_handler(ngx_http_request_t *r) {
+  ngx_int_t rc;
+  ngx_http_firetail_ctx_t *ctx;
 
-    ctx = ngx_http_get_module_ctx(r, ngx_firetail_module);
+  ctx = ngx_http_get_module_ctx(r, ngx_firetail_module);
 
-    if (ctx) {
-        return ctx->status;
-    }
+  if (ctx) {
+    return ctx->status;
+  }
 
-    ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_firetail_ctx_t));
-    if (ctx == NULL) {
-        return NGX_ERROR;
-    }
+  ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_firetail_ctx_t));
+  if (ctx == NULL) {
+    return NGX_ERROR;
+  }
 
-    ctx->status = NGX_DONE;
+  ctx->status = NGX_DONE;
 
-    //ngx_http_set_ctx(r, ctx, ngx_firetail_module);
+  // ngx_http_set_ctx(r, ctx, ngx_firetail_module);
 
-    rc = ngx_http_read_client_request_body(r, ngx_http_foo_body_handler);
-    if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
-        return rc; 
-    }
+  rc = ngx_http_read_client_request_body(r, ngx_http_foo_body_handler);
+  if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+    return rc;
+  }
 
-    ngx_http_finalize_request(r, NGX_DONE);
-    return NGX_DONE;
-} 
+  ngx_http_finalize_request(r, NGX_DONE);
+  return NGX_DONE;
+}
 
 ngx_int_t FiretailInit(ngx_conf_t *cf) {
-  ngx_http_handler_pt        *h;
-  ngx_http_core_main_conf_t  *cmcf;
+  ngx_http_handler_pt *h;
+  ngx_http_core_main_conf_t *cmcf;
 
   cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
   h = ngx_array_push(&cmcf->phases[NGX_HTTP_PREACCESS_PHASE].handlers);
   if (h == NULL) {
-      return NGX_ERROR;
+    return NGX_ERROR;
   }
 
   *h = ngx_http_foo_handler;
