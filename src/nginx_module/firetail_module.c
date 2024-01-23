@@ -20,8 +20,8 @@ typedef struct {
 } ngx_http_firetail_ctx_t;
 
 static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *r);
-static void ngx_http_foo_body_handler(ngx_http_request_t *r);
-static ngx_int_t ngx_http_foo_handler(ngx_http_request_t *r);
+static void ngx_http_firetail_body_handler(ngx_http_request_t *r);
+static ngx_int_t ngx_http_firetail_handler(ngx_http_request_t *r);
 
 static ngx_int_t ngx_http_firetail_handler_internal(
     ngx_http_request_t *request) {
@@ -154,7 +154,7 @@ static ngx_int_t ngx_http_firetail_handler_internal(
   return NGX_OK; // can be NGX_DECLINED - see ngx_http_mirror_handler_internal function in nginx mirror module
 }
 
-static void ngx_http_foo_body_handler(ngx_http_request_t *request) {
+static void ngx_http_firetail_body_handler(ngx_http_request_t *request) {
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                 "	✅️✅️✅️RUNNING BODY HANDLER %s✅️✅️✅️",
                 request->request_body);
@@ -171,7 +171,7 @@ static void ngx_http_foo_body_handler(ngx_http_request_t *request) {
   ngx_http_core_run_phases(request); 
 }
 
-static ngx_int_t ngx_http_foo_handler(ngx_http_request_t *r) {
+static ngx_int_t ngx_http_firetail_handler(ngx_http_request_t *r) {
   ngx_int_t rc;
   ngx_http_firetail_ctx_t *ctx;
 
@@ -190,7 +190,7 @@ static ngx_int_t ngx_http_foo_handler(ngx_http_request_t *r) {
 
   // ngx_http_set_ctx(r, ctx, ngx_firetail_module);
 
-  rc = ngx_http_read_client_request_body(r, ngx_http_foo_body_handler);
+  rc = ngx_http_read_client_request_body(r, ngx_http_firetail_body_handler);
   if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
     return rc;
   }
@@ -210,7 +210,7 @@ ngx_int_t FiretailInit(ngx_conf_t *cf) {
     return NGX_ERROR;
   }
 
-  *h = ngx_http_foo_handler;
+  *h = ngx_http_firetail_handler;
 
   kNextRequestBodyFilter = ngx_http_top_request_body_filter;
   ngx_http_top_request_body_filter = FiretailRequestBodyFilter;
