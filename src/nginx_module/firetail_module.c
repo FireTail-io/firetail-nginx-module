@@ -151,7 +151,8 @@ static ngx_int_t ngx_http_firetail_handler_internal(
 
   dlclose(validator_module);
 
-  return NGX_OK; // can be NGX_DECLINED - see ngx_http_mirror_handler_internal function in nginx mirror module
+  return NGX_OK;  // can be NGX_DECLINED - see ngx_http_mirror_handler_internal
+                  // function in nginx mirror module
 }
 
 static void ngx_http_firetail_body_handler(ngx_http_request_t *request) {
@@ -168,7 +169,7 @@ static void ngx_http_firetail_body_handler(ngx_http_request_t *request) {
   request->preserve_body = 1;
 
   request->write_event_handler = ngx_http_core_run_phases;
-  ngx_http_core_run_phases(request); 
+  ngx_http_core_run_phases(request);
 }
 
 static ngx_int_t ngx_http_firetail_handler(ngx_http_request_t *r) {
