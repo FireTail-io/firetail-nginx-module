@@ -153,19 +153,19 @@ static ngx_int_t ngx_http_firetail_handler_internal(
 
   return NGX_OK;  // can be NGX_DECLINED - see ngx_http_mirror_handler_internal
                   // function in nginx mirror module
-} 
+}
 
 static void ngx_http_firetail_body_handler(ngx_http_request_t *request) {
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                 "	✅️✅️✅️RUNNING BODY HANDLER %s✅️✅️✅️",
                 request->request_body);
 
-  ngx_http_firetail_handler_internal(request); 
+  ngx_http_firetail_handler_internal(request);
 
   request->preserve_body = 1;
 
   request->write_event_handler = ngx_http_core_run_phases;
-  ngx_http_core_run_phases(request); 
+  ngx_http_core_run_phases(request);
 }
 
 static ngx_int_t ngx_http_firetail_handler(ngx_http_request_t *r) {
@@ -173,7 +173,7 @@ static ngx_int_t ngx_http_firetail_handler(ngx_http_request_t *r) {
   ngx_http_firetail_ctx_t *ctx;
 
   if (r != r->main) {
-      return NGX_DECLINED;
+    return NGX_DECLINED;
   }
 
   ctx = ngx_http_get_module_ctx(r, ngx_firetail_module);
@@ -187,7 +187,7 @@ static ngx_int_t ngx_http_firetail_handler(ngx_http_request_t *r) {
     return NGX_ERROR;
   }
 
-  ctx->status = NGX_DONE; 
+  ctx->status = NGX_DONE;
 
   rc = ngx_http_read_client_request_body(r, ngx_http_firetail_body_handler);
   if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
