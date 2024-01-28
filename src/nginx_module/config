@@ -4,7 +4,6 @@ FIRETAIL_SRCS="                                                             \
         $ngx_addon_dir/firetail_module.c                                    \
         $ngx_addon_dir/filter_context.c                                     \
         $ngx_addon_dir/filter_firetail_send.c                               \
-        $ngx_addon_dir/filter_request_body.c                                \
         $ngx_addon_dir/filter_response_body.c                               \
         $ngx_addon_dir/filter_headers.c                                     \
         "

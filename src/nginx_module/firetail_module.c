@@ -3,7 +3,6 @@
 #include <ngx_http.h>
 #include "filter_context.h"
 #include "filter_headers.h"
-#include "filter_request_body.h"
 #include "filter_response_body.h"
 #include "firetail_module.h"
 #include "filter_firetail_send.h"
@@ -13,7 +12,6 @@
 
 ngx_http_output_header_filter_pt kNextHeaderFilter;
 ngx_http_output_body_filter_pt kNextResponseBodyFilter;
-ngx_http_request_body_filter_pt kNextRequestBodyFilter;
 
 typedef struct {
   ngx_int_t status;
@@ -26,7 +24,7 @@ static ngx_int_t ngx_http_firetail_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_http_firetail_handler_internal(
     ngx_http_request_t *request) {
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "   ✅️✅️✅️HANDLER INTERNAL✅️✅️✅️");
+                "✅️✅️✅️HANDLER INTERNAL✅️✅️✅️");
 
   ngx_chain_t *chain_head;
   chain_head = request->request_body->bufs;
@@ -210,9 +208,6 @@ ngx_int_t FiretailInit(ngx_conf_t *cf) {
   }
 
   *h = ngx_http_firetail_handler;
-
-  kNextRequestBodyFilter = ngx_http_top_request_body_filter;
-  ngx_http_top_request_body_filter = FiretailRequestBodyFilter;
 
   kNextResponseBodyFilter = ngx_http_top_body_filter;
   ngx_http_top_body_filter = FiretailResponseBodyFilter;
