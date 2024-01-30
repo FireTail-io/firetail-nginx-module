@@ -31,7 +31,27 @@ The Firetail NGINX Module will be receiving 401 responses as you have not yet co
 
 ### Request Validation
 
-TODO
+To demonstrate request validation a `POST /proxy/profile/{username}/comment` operation is defined in the provided [appspec.yml](./dev/appspec.yml), with one profile defined in the provided [nginx.conf](./dev/nginx.conf): `POST /proxy/profile/alice/comment`. A `proxy_pass` directive is used to forward requests to `/profile/alice/comment` as the request body validation will not occur on locations where the `return` directive is used.
+
+Making a curl request to `POST /profile/alice/comment` should yield the following result, which validates successfully against the provided appspec:
+
+```bash
+curl localhost:8080/proxy/profile/alice/comment -X POST -H "Content-Type: application/json" -d '{"comment":"Hello world!"}
+```
+
+```json
+{"message":"Success!"}
+```
+
+If you alter the request body in any way that deviates from the appspec you will receive an error response from the Firetail nginx module instead:
+
+```bash
+curl localhost:8080/proxy/profile/alice/comment -X POST -H "Content-Type: application/json" -d '{"comment":12345}'
+```
+
+```json
+{"code":400,"title":"something's wrong with your request body","detail":"the request's body did not match your appspec: request body has an error: doesn't match the schema: Error at \"/comment\": field must be set to string or not be present\nSchema:\n  {\n    \"type\": \"string\"\n  }\n\nValue:\n  \"number, integer\"\n"}
+```
 
 
 
@@ -49,7 +69,7 @@ curl localhost:8080/profile/alice
 {"username":"alice", "friends": 123456789}
 ```
 
-Making a curl request to `GET /profile/bob` will yield a different result, as the response body defined in our nginx.conf erroneously includes Bob's address. This does not validate against our appspec, so the response body is overwritten by the Firetail middleware, protecting Bob from having his personally identifiable information disclosed by our faulty application:
+Making a curl request to `GET /profile/bob` will yield a different result, as the response body defined in our nginx.conf erroneously includes Bob's address. This does not validate against our appspec, so the response body is overwritten by the Firetail middleware, which can protect Bob from having his personally identifiable information disclosed by our faulty application. For the purposes of this demo, the Firetail library's debugging responses are enabled so we get a verbose explanation of the problem:
 
 ```bash
 curl localhost:8080/profile/bob
