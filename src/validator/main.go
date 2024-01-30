@@ -2,11 +2,10 @@ package main
 
 import (
 	"C"
-	"log"
-	"net/http"
-	"unsafe"
 	"encoding/json"
+	"log"
 	"strings"
+	"unsafe"
 
 	"bytes"
 	"io"
@@ -16,53 +15,17 @@ import (
 	firetail "github.com/FireTail-io/firetail-go-lib/middlewares/http"
 )
 
-// Will hold our Firetail middleware in Go memory
-var firetailMiddleware func(next http.Handler) http.Handler
-
-// Creates our middleware instance with the provided OpenAPI spec and Firetail API key
-//
-//export CreateMiddleware
-func CreateMiddleware(specLocationBytes unsafe.Pointer, specLocationLength C.int) C.int {
-	log.Println("Loading OpenAPI spec in Go...")
-
-	specLocationSlice := C.GoBytes(specLocationBytes, specLocationLength)
-	specLocation := string(specLocationSlice)
-	log.Println("OpenAPI spec location:", specLocation)
-
-	var err error
-	firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
-		OpenapiSpecPath:          specLocation,
-		LogsApiToken:             "",
-		LogsApiUrl:               "",
-		DebugErrs:                true,
-		EnableRequestValidation:  false,
-		EnableResponseValidation: false,
-	})
-	if err != nil {
-		log.Println("Failed to initialise Firetail middleware, err:", err.Error())
-		// return 1 is error by convention
-		return 1
-	}
-
-	// return 0 is success by convention
-	return 0
-}
-
 //export ValidateRequestBody
 func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int,
-        headersCharPtr unsafe.Pointer, headersLength C.int) (C.int, *C.char) {
-
-	// remove this later
-	log.Println("Hello from Go's ValidateRequestBody!")
+	headersCharPtr unsafe.Pointer, headersLength C.int) (C.int, *C.char) {
 
 	specSlice := C.GoBytes(specBytes, specLength)
 	spec := string(specSlice)
 
-	var err error
-	firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
+	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
 		OpenapiSpecData:          spec,
 		LogsApiToken:             "",
 		LogsApiUrl:               "",
@@ -70,7 +33,6 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 		EnableRequestValidation:  true,
 		EnableResponseValidation: false,
 	})
-
 	if err != nil {
 		log.Println("Failed to initialise Firetail middleware, err:", err.Error())
 		// return 1 is error by convention
@@ -84,7 +46,7 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 
 	var headers map[string][]string
 	if err := json.Unmarshal(headersSlice, &headers); err != nil {
-                panic(err)
+		panic(err)
 	}
 
 	// Create a fake handler
@@ -101,14 +63,14 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	localResponseWriter := httptest.NewRecorder()
 
 	mockRequest := httptest.NewRequest(
-                string(methodSlice), string(pathSlice),
-                io.NopCloser(bytes.NewBuffer(bodySlice)))
+		string(methodSlice), string(pathSlice),
+		io.NopCloser(bytes.NewBuffer(bodySlice)))
 
-	for k, v := range headers { 
+	for k, v := range headers {
 		// convert value (v) to comma-delimited values
-                // key "k" is still as it is
+		// key "k" is still as it is
 		mockRequest.Header.Add(k, strings.Join(v[:], ", "))
-        }
+	}
 
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, mockRequest)
@@ -116,20 +78,13 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	// If the body differs after being passed through the middleware then we'll just infer it doesn't
 	// match the spec
 	middlewareResponseBodyBytes, err := io.ReadAll(localResponseWriter.Body)
-
 	response := C.CString(string(middlewareResponseBodyBytes))
-
-	// just logging, can remove later
-	bodyString := string(bodySlice)
-	log.Println("Request body length:", bodyLength)
-	log.Println("Request body in Go:", bodyString)
 
 	if err != nil {
 		log.Println("Failed to read request body bytes from middleware, err:", err.Error())
 		// return 1 is error by convention
 		return 1, response
 	}
-
 	if string(middlewareResponseBodyBytes) != string(placeholderResponse) {
 		log.Printf("Middleware altered response body, original: %s, new: %s", string(placeholderResponse), string(middlewareResponseBodyBytes))
 		// return 1 is error by convention
@@ -147,13 +102,10 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 	statusCode C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
 
-	log.Println("Running ValidateResponseBody...")
-
 	specSlice := C.GoBytes(specBytes, specLength)
 	spec := string(specSlice)
 
-	var err error
-	firetailMiddleware, err = firetail.GetMiddleware(&firetail.Options{
+	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
 		OpenapiSpecData:          spec,
 		LogsApiToken:             "",
 		LogsApiUrl:               "",
@@ -161,7 +113,6 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 		EnableRequestValidation:  false,
 		EnableResponseValidation: true,
 	})
-
 	if err != nil {
 		log.Println("Failed to initialise Firetail middleware, err:", err.Error())
 		return 0, nil
@@ -215,30 +166,9 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 		// return 1 is error by convention
 		return 1, response
 	}
+
 	// return 0 is success by convention
 	return 0, response
-}
-
-//export ValidateRequestHeaders
-func ValidateRequestHeaders(headersCharPtr unsafe.Pointer, headersLength C.int) C.int {
-	log.Println("Hello from Go's ValidateRequestHeaders!")
-	slice := C.GoBytes(headersCharPtr, headersLength)
-	headersString := string(slice)
-	log.Println("Request headers length:", headersLength)
-	log.Println("Request headers in Go:", headersString)
-	// return 0 is success by convention
-	return 0
-}
-
-//export ValidateResponseHeaders
-func ValidateResponseHeaders(headersCharPtr unsafe.Pointer, headersLength C.int) C.int {
-	log.Println("Hello from Go's ValidateResponseHeaders!")
-	slice := C.GoBytes(headersCharPtr, headersLength)
-	headersString := string(slice)
-	log.Println("Response headers length:", headersLength)
-	log.Println("Response headers in Go:", headersString)
-	// return 0 is success by convention
-	return 0
 }
 
 func main() {}

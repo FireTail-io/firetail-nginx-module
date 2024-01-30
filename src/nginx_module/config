@@ -12,7 +12,6 @@ FIRETAIL_DEPS="                                                             \
         $ngx_addon_dir/firetail_module.h                                    \
         $ngx_addon_dir/filter_context.h                                     \
         $ngx_addon_dir/filter_firetail_send.h                               \
-        $ngx_addon_dir/filter_request_body.h                                \
         $ngx_addon_dir/filter_response_body.h                               \
         $ngx_addon_dir/filter_headers.h                                     \
         "
