@@ -4,25 +4,30 @@
 #include "filter_context.h"
 #include "filter_response_body.h"
 #include "firetail_module.h"
+#include "filter_firetail_send.h"
 
 size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
                                 void *userp) {
   return size * nmemb;
 }
 
-#define MAX_WAIT_MSECS 30 * 100 /* max wait 30 secs */
-
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
+  struct ValidateResponseBody_return validation_result;
+
   // Set the logging level to debug
   // TODO: remove
   request->connection->log->log_level = NGX_LOG_DEBUG;
 
   // Get our context so we can store the response body data
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
-  if (ctx == NULL) {
-    return NGX_ERROR;
+  if (ctx == NULL || ctx->done) {
+    return kNextResponseBodyFilter(request, chain_head);
   }
+
+  /*if (ctx == NULL) {
+    return NGX_ERROR;
+  }*/
 
   // Determine the length of the response body chain we've been given, and if
   // the chain contains the last link
@@ -69,61 +74,70 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
     // Update the ctx with the new updated body
     ctx->response_body = updated_response_body;
+
+    ngx_pfree(request->pool, updated_response_body);
   }
 
   // If it doesn't contain the last buffer of the response body, pass everything
   // onto the next filter - we do not care.
   if (!chain_contains_last_link) {
-    return kNextResponseBodyFilter(request, chain_head);
+    // return kNextResponseBodyFilter(request, chain_head);
   }
+
+  FiretailMainConfig *main_config =
+      ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
   // If it does contain the last buffer, we can validate it with our go lib.
   // NOTE: I'm currently loading this dynamic module in every time we need to
   // call it. If I do it once at startup, it would just hang when I call the
   // response body validator _sometimes_. Couldn't figure out why. Creating the
   // middleware on the go side of things every time will be very inefficient.
-  void *validator_module =
-      dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
-  if (validator_module == NULL) {
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Failed to open validator.so: %s", dlerror());
-    exit(1);
-  }
 
-  CreateMiddlewareFunc create_middleware =
-      (CreateMiddlewareFunc)dlsym(validator_module, "CreateMiddleware");
-  char *error;
-  if ((error = dlerror()) != NULL) {
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Failed to load CreateMiddleware: %s", error);
-    exit(1);
-  }
+  if (ctx->bypass_response == 0) {
+    void *validator_module =
+        dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
+    if (!validator_module) {
+      return NGX_ERROR;
+    }
 
-  int create_middleware_result = create_middleware(
-      "/etc/nginx/appspec.yml", strlen("/etc/nginx/appspec.yml"));
-  ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                "Create middleware result: %d", create_middleware_result);
-  if (create_middleware_result == 1) {
     ValidateResponseBody response_body_validator =
         (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
+    char *error;
     if ((error = dlerror()) != NULL) {
-      ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                    "Failed to load ValidateRequestBody: %s", error);
+      ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+                    "Failed to load ValidateResponseBody: %s", error);
       exit(1);
     }
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Validating response body...");
-    struct ValidateResponseBody_return validation_result =
-        response_body_validator(ctx->response_body, ctx->response_body_size,
-                                request->unparsed_uri.data,
-                                request->unparsed_uri.len, ctx->status_code);
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Validation result: %d", validation_result.r0);
-    ngx_log_error(NGX_LOG_ERR, request->connection->log, 0,
-                  "Validation response body: %s", validation_result.r1);
-  }
 
-  dlclose(validator_module);
+    char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
+    ngx_memcpy(schema, main_config->FiretailAppSpec.data,
+               main_config->FiretailAppSpec.len);
+
+    // ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
+    //               schema);
+    // struct ValidateResponseBody_return validation_result =
+    validation_result = response_body_validator(
+        schema, strlen(schema), ctx->response_body, ctx->response_body_size,
+        request->unparsed_uri.data, request->unparsed_uri.len, ctx->status_code,
+        request->method_name.data, request->method_name.len);
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "Validation response result: %d", validation_result.r0);
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "Validating response body: %s", validation_result.r1);
+
+    ngx_pfree(request->pool, schema);
+
+    // if validation result is not successful
+    if (validation_result.r0 > 0) {
+      return ngx_http_firetail_send(request, ctx, NULL, validation_result.r1);
+    }
+
+    dlclose(validator_module);
+  } else {
+    validation_result.r1 = (char *)ctx->request_result;
+  }
 
   // Piece together a JSON object
   // TODO: optimise the JSON generation process
@@ -184,6 +198,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
              request->unparsed_uri.data, request->unparsed_uri.len);
   *(full_uri + strlen("http://") + strlen((char *)ctx->server) +
     request->unparsed_uri.len) = '\0';
+
   json_object *request_uri = json_object_new_string(full_uri);
   json_object_object_add(request_object, "uri", request_uri);
 
@@ -240,7 +255,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   json_object_object_add(response_object, "headers", response_headers);
 
   // Log it
-  ngx_log_error(
+  ngx_log_debug(
       NGX_LOG_DEBUG, request->connection->log, 0, "%s",
       json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
@@ -269,8 +284,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
 
   // The headers also need to provide the Firetail API key
   // TODO: check this wayyyyy earlier so we don't wastefully generate JSON etc.
-  FiretailMainConfig *main_config =
-      ngx_http_get_module_main_conf(request, ngx_firetail_module);
+  // FiretailMainConfig *main_config =
+  //    ngx_http_get_module_main_conf(request, ngx_firetail_module);
   if (main_config->FiretailApiToken.len > 0) {
     char *x_ft_api_key =
         ngx_palloc(request->pool, strlen("x-ft-api-key: ") +
@@ -282,8 +297,10 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     *(x_ft_api_key + strlen("x-ft-api-key: ") +
       main_config->FiretailApiToken.len) = '\0';
     curl_headers = curl_slist_append(curl_headers, x_ft_api_key);
+
+    ngx_pfree(request->pool, x_ft_api_key);
   } else {
-    ngx_log_error(NGX_LOG_DEBUG, request->connection->log, 0,
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "FIRETAIL_API_KEY environment variable unset. Not sending "
                   "log to Firetail.");
     return kNextResponseBodyFilter(request, chain_head);
@@ -306,10 +323,22 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   curl_multi_add_handle(multiHandler, curlHandler);
   curl_multi_perform(multiHandler, &still_running);
 
-  // removing handler will incur performance penalty
-  // we do cleanups
+  // remove handle
+  curl_multi_remove_handle(multiHandler, curlHandler);
+  // curl cleanup
   curl_easy_cleanup(curlHandler);
+  ngx_pfree(request->pool, full_uri);
 
   // Pass the chain onto the next response body filter
-  return kNextResponseBodyFilter(request, chain_head);
+  // return kNextResponseBodyFilter(request, chain_head);
+
+  if (ctx->bypass_response == 0) {
+    return ngx_http_firetail_send(
+        request, ctx,
+        ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
+  } else {
+    return ngx_http_firetail_send(
+        request, ctx,
+        ngx_http_filter_buffer(request, (u_char *)ctx->request_result), NULL);
+  }
 }

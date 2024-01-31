@@ -29,19 +29,19 @@ paths:
       responses:
         "500":
           $ref: "#/components/responses/Unhealthy"
-  /health-proxy:
+  /proxy/health:
     get:
       summary: Returns the status of the server
       responses:
         "200":
           $ref: "#/components/responses/Healthy"
-  /notfound-proxy:
+  /proxy/notfound:
     get:
       summary: Returns a mock 404 response
       responses:
         "404":
           $ref: "#/components/responses/NotFound"
-  /unhealthy-proxy:
+  /proxy/unhealthy:
     get:
       summary: Returns a mock 400 response
       responses:
@@ -73,6 +73,77 @@ paths:
                   friends:
                     type: integer
                     minimum: 0
+  /profile/{username}/comment:
+    post:
+      summary: Post a comment on a user's profile
+      requestBody:
+        description: The comment to be added to the user's profile
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: ["comment"]
+              additionalProperties: false
+              properties:
+                comment:
+                  type: string
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            description: The username of the user whose profile should be returned
+            type: string
+            minLength: 3
+            maxLength: 20
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: False
+                properties:
+                  message:
+                    type: string
+  /proxy/profile/{username}/comment:
+    post:
+      required: true
+      summary: Post a comment on a user's profile
+      requestBody:
+        description: The comment to be added to the user's profile
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: ["comment"]
+              additionalProperties: false
+              properties:
+                comment:
+                  type: string
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            description: The username of the user whose profile should be returned
+            type: string
+            minLength: 3
+            maxLength: 20
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: False
+                properties:
+                  message:
+                    type: string
 components:
   responses:
     Healthy:
