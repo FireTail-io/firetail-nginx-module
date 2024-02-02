@@ -22,7 +22,7 @@ if test -n "$ngx_module_link"; then
     ngx_module_incs=
     ngx_module_deps="$FIRETAIL_DEPS"
     ngx_module_srcs="$FIRETAIL_SRCS"
-    ngx_module_libs="-lcurl -ljson-c"
+    ngx_module_libs="-ljson-c"
 
     . auto/module
 else
@@ -30,5 +30,5 @@ else
     HTTP_FILTER_MODULES="$HTTP_FILTER_MODULES ngx_firetail_module"
     NGX_ADDON_SRCS="$NGX_ADDON_SRCS $FIRETAIL_SRCS"
     NGX_ADDON_DEPS="$NGX_ADDON_DEPS $FIRETAIL_DEPS"
-    CORE_LIBS="$CORE_LIBS -lcurl -ljson-c"
+    CORE_LIBS="$CORE_LIBS -ljson-c"
 fi

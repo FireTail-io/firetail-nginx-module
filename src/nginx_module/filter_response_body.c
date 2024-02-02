@@ -1,15 +1,9 @@
 #include <ngx_core.h>
-#include <curl/curl.h>
 #include <json-c/json.h>
 #include "filter_context.h"
 #include "filter_response_body.h"
 #include "firetail_module.h"
 #include "filter_firetail_send.h"
-
-size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
-                                void *userp) {
-  return size * nmemb;
-}
 
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
