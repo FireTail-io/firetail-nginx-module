@@ -93,7 +93,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // response body validator _sometimes_. Couldn't figure out why. Creating the
   // middleware on the go side of things every time will be very inefficient.
 
-  if (ctx->bypass_response == 0) {
+ if (ctx->bypass_response == 0) {
     void *validator_module =
         dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
     if (!validator_module) {
@@ -264,7 +264,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   CURLM *multiHandler = curl_multi_init();
   CURL *curlHandler = curl_easy_init();
 
-  int still_running = 0;
+  int still_running = 1;
 
   if (curlHandler == NULL) {
     return kNextResponseBodyFilter(request, chain_head);
@@ -323,12 +323,51 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   curl_multi_add_handle(multiHandler, curlHandler);
   curl_multi_perform(multiHandler, &still_running);
 
+  /*do {
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "RUNNING...");
+
+    CURLMcode mc = curl_multi_perform(multiHandler, &still_running);
+    
+    //if(still_running)
+    //  mc = curl_multi_poll(multiHandler, NULL, 0, 1000, NULL);
+
+    if(mc)
+	    break;
+  } while(still_running); */
+
+  curl_multi_cleanup(multiHandler);
   // remove handle
   curl_multi_remove_handle(multiHandler, curlHandler);
   // curl cleanup
   curl_easy_cleanup(curlHandler);
   ngx_pfree(request->pool, full_uri);
 
+  void *http_module =
+      dlopen("/etc/nginx/modules/firetail-httpclient.so", RTLD_LAZY);
+  if (!http_module) {
+    return NGX_ERROR;
+  }
+
+  HttpClient http_client =
+      (HttpClient)dlsym(http_module, "HttpClient");
+  char *error;
+  if ((error = dlerror()) != NULL) {
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "Failed to load HttpClient: %s", error);
+    exit(1);
+  }
+
+  void *json_string = (void *)json_object_to_json_string(log_root);
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "JSON STRING: %s", json_string);
+
+  struct HttpClient_return http_client_result = http_client(json_string, strlen(json_string), (char *)main_config->FiretailApiToken.data, main_config->FiretailApiToken.len);
+
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+                  "HttpClient result: %d", http_client_result); 
+
+   dlclose(http_module);
   // Pass the chain onto the next response body filter
   // return kNextResponseBodyFilter(request, chain_head);
 

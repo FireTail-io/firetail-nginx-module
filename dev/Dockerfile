@@ -1,16 +1,21 @@
 FROM golang:1.21.0-bullseye AS build-golang
 
 # Make a /src and /dist directory, with our workdir set to /src
-WORKDIR /src
+WORKDIR /src/validator
 RUN mkdir /dist
 
 # Copy in our go source for the validator
-COPY src/validator /src
+COPY src/validator /src/validator
 
 # Build the go source as a c-shared lib, outputting to /dist as /dist/validator.so
 # NOTE: this will also create a /dist/validator.h which is not needed, so it's discarded it afterwards
 RUN CGO_ENABLED=1 go build -buildmode c-shared -o /dist/firetail-validator.so .
 RUN rm /dist/firetail-validator.h
+
+WORKDIR /src/httpclient
+COPY src/httpclient /src/httpclient
+RUN CGO_ENABLED=1 go build -buildmode c-shared -o /dist/firetail-httpclient.so .
+RUN rm /dist/firetail-httpclient.h
 
 FROM debian:bullseye-slim AS build-c
 
