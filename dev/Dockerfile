@@ -12,10 +12,10 @@ COPY src/validator /src/validator
 RUN CGO_ENABLED=1 go build -buildmode c-shared -o /dist/firetail-validator.so .
 RUN rm /dist/firetail-validator.h
 
-WORKDIR /src/httpclient
-COPY src/httpclient /src/httpclient
-RUN CGO_ENABLED=1 go build -buildmode c-shared -o /dist/firetail-httpclient.so .
-RUN rm /dist/firetail-httpclient.h
+WORKDIR /src/http_client
+COPY src/http_client /src/http_client
+RUN CGO_ENABLED=1 go build -buildmode c-shared -o /dist/firetail-http_client.so .
+RUN rm /dist/firetail-http_client.h
 
 FROM debian:bullseye-slim AS build-c
 
