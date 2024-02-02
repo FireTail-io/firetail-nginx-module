@@ -93,7 +93,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   // response body validator _sometimes_. Couldn't figure out why. Creating the
   // middleware on the go side of things every time will be very inefficient.
 
- if (ctx->bypass_response == 0) {
+  if (ctx->bypass_response == 0) {
     void *validator_module =
         dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
     if (!validator_module) {
@@ -259,8 +259,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       NGX_LOG_DEBUG, request->connection->log, 0, "%s",
       json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
-  HttpClient http_client =
-      (HttpClient)dlsym(http_module, "HttpClient");
+  HttpClient http_client = (HttpClient)dlsym(http_module, "HttpClient");
   char *error;
   if ((error = dlerror()) != NULL) {
     ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
@@ -269,15 +268,18 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   }
 
   void *json_string = (void *)json_object_to_json_string(log_root);
-    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                  "JSON STRING: %s", json_string);
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "JSON STRING: %s",
+                json_string);
 
-  struct HttpClient_return http_client_result = http_client(json_string, strlen(json_string), (char *)main_config->FiretailApiToken.data, main_config->FiretailApiToken.len);
+  struct HttpClient_return http_client_result =
+      http_client(json_string, strlen(json_string),
+                  (char *)main_config->FiretailApiToken.data,
+                  main_config->FiretailApiToken.len);
 
-    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                  "HttpClient result: %d", http_client_result); 
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
+                "HttpClient result: %d", http_client_result);
 
-   dlclose(http_module);
+  dlclose(http_module);
   // Pass the chain onto the next response body filter
   // return kNextResponseBodyFilter(request, chain_head);
 

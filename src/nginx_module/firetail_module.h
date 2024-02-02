@@ -12,8 +12,10 @@ struct ValidateResponseBody_return {
 typedef struct ValidateResponseBody_return (*ValidateResponseBody)(
     char*, int, void*, int, void*, int, int, void*, int);
 
-struct HttpClient_return { int r0; };
-typedef struct HttpClient_return(*HttpClient)(char*, int, char*, int);
+struct HttpClient_return {
+  int r0;
+};
+typedef struct HttpClient_return (*HttpClient)(char*, int, char*, int);
 
 struct ValidateRequestBody_return {
   int r0;
