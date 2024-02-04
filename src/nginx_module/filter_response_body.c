@@ -253,6 +253,12 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
       NGX_LOG_DEBUG, request->connection->log, 0, "%s",
       json_object_to_json_string_ext(log_root, JSON_C_TO_STRING_PRETTY));
 
+  void *http_module =
+      dlopen("/etc/nginx/modules/firetail-http_client.so", RTLD_LAZY);
+  if (!http_module) {
+    return NGX_ERROR;
+  }
+
   HttpClient http_client = (HttpClient)dlsym(http_module, "HttpClient");
   char *error;
   if ((error = dlerror()) != NULL) {

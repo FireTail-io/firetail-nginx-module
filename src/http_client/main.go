@@ -6,6 +6,7 @@ import (
 	"unsafe"
 	"bytes"
 	"log"
+	_ "io"
 )
 
 //export HttpClient
@@ -34,6 +35,17 @@ func HttpClient(body unsafe.Pointer, bodyLength C.int,
                         panic(err)
                 }
                 defer res.Body.Close() 
+
+		/* debug code
+                log.Println("HTTP status code: %d", res.StatusCode)
+
+                b, err := io.ReadAll(res.Body)
+                if err != nil {
+                        log.Println("Error reading response body: %s", err)
+                }
+
+                log.Println("HTTP response body: %s", string(b))
+		*/
 	}() 
 	return 0;
 }
