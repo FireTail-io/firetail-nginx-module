@@ -23,10 +23,9 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	headersCharPtr unsafe.Pointer, headersLength C.int) (C.int, *C.char) {
 
 	specSlice := C.GoBytes(specBytes, specLength)
-	spec := string(specSlice)
 
 	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
-		OpenapiSpecData:          spec,
+		OpenapiBytes:             specSlice,
 		LogsApiToken:             "",
 		LogsApiUrl:               "",
 		DebugErrs:                true,
@@ -103,10 +102,9 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
 
 	specSlice := C.GoBytes(specBytes, specLength)
-	spec := string(specSlice)
 
 	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
-		OpenapiSpecData:          spec,
+		OpenapiBytes:             specSlice,
 		LogsApiToken:             "",
 		LogsApiUrl:               "",
 		DebugErrs:                true,
