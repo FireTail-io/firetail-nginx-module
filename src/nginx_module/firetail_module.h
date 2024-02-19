@@ -10,7 +10,7 @@ struct ValidateResponseBody_return {
   char* r1;
 };
 typedef struct ValidateResponseBody_return (*ValidateResponseBody)(
-    char*, int, void*, int, void*, int, int, void*, int);
+    char*, int, char* , int, char*, int, void*, int, void*, int, int, void*, int);
 
 struct ValidateRequestBody_return {
   int r0;
@@ -23,6 +23,7 @@ typedef struct ValidateRequestBody_return (*ValidateRequestBody)(
 typedef struct {
   ngx_str_t FiretailApiToken;  // TODO: this should probably be a *ngx_str_t
   ngx_str_t FiretailAppSpec;
+  ngx_str_t FiretailUrl;
 } FiretailMainConfig;
 
 // The header and body filters of the filter that was added just before ours.

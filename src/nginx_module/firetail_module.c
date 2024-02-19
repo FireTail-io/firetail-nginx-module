@@ -226,7 +226,9 @@ static void *CreateFiretailMainConfig(ngx_conf_t *configuration_object) {
   }
 
   ngx_str_t firetail_api_token = ngx_string("");
+  ngx_str_t firetail_url = ngx_string("");
   http_main_config->FiretailApiToken = firetail_api_token;
+  http_main_config->FiretailUrl = firetail_url;
 
   // load appspec schema
   // schema file pointer
@@ -294,7 +296,24 @@ char *EnableFiretailDirectiveInit(ngx_conf_t *configuration_object,
   return NGX_CONF_OK;
 }
 
-ngx_command_t kFiretailCommands[2] = {
+char *EnableFiretailUrlInit(ngx_conf_t *configuration_object,
+                                  ngx_command_t *command_definition,
+                                  void *http_main_config) {
+  // TODO: validate the args given to the directive
+
+  // Find the firetail_api_key_field given the config pointer & offset in cmd
+  char *firetail_config = http_main_config;
+  ngx_str_t *firetail_url_field =
+      (ngx_str_t *)(firetail_config + command_definition->offset);
+
+  // Get the string value from the configuraion object
+  ngx_str_t *value = configuration_object->args->elts;
+  *firetail_url_field = value[1];
+
+  return NGX_CONF_OK;
+}
+
+ngx_command_t kFiretailCommands[3] = {
     {// Name of the directive
      ngx_string("firetail_api_token"),
      // Valid in the main config and takes one arg
@@ -303,6 +322,11 @@ ngx_command_t kFiretailCommands[2] = {
      // configuration
      EnableFiretailDirectiveInit, NGX_HTTP_MAIN_CONF_OFFSET,
      offsetof(FiretailMainConfig, FiretailApiToken), NULL},
+    {
+     ngx_string("firetail_url"),
+     NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+     EnableFiretailUrlInit, NGX_HTTP_MAIN_CONF_OFFSET,
+     offsetof(FiretailMainConfig, FiretailUrl), NULL},
     ngx_null_command};
 
 ngx_module_t ngx_firetail_module = {
