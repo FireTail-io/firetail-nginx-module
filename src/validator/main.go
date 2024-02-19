@@ -100,7 +100,7 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 	reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
         tokenCharPtr unsafe.Pointer, tokenLength C.int,
         specBytes unsafe.Pointer, specLength C.int,
-	bodyCharPtr unsafe.Pointer, bodyLength C.int,
+	resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	statusCode C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
@@ -124,14 +124,14 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 		return 0, nil
 	}
 
-	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
+	resBodySlice := C.GoBytes(resBodyCharPtr, resBodyLength)
 	pathSlice := C.GoBytes(pathCharPtr, pathLength)
 	methodSlice := C.GoBytes(methodCharPtr, methodLength)
 
 	// Create a handler returning the response body and status code from nginx
 	myHandler := &stubHandler{
 		responseCode:  int(statusCode),
-		responseBytes: bodySlice,
+		responseBytes: resBodySlice,
 	}
 
 	// Create our middleware instance with the stub handler
@@ -167,8 +167,8 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 		// return 1 is error by convention
 		return 1, response
 	}
-	if string(middlewareResponseBodyBytes) != string(bodySlice) {
-		log.Printf("Middleware altered response body, original: %s, new: %s", string(bodySlice), string(middlewareResponseBodyBytes))
+	if string(middlewareResponseBodyBytes) != string(resBodySlice) {
+		log.Printf("Middleware altered response body, original: %s, new: %s", string(resBodySlice), string(middlewareResponseBodyBytes))
 		// return 1 is error by convention
 		return 1, response
 	}
