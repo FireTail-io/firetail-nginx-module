@@ -297,8 +297,8 @@ char *EnableFiretailDirectiveInit(ngx_conf_t *configuration_object,
 }
 
 char *EnableFiretailUrlInit(ngx_conf_t *configuration_object,
-                                  ngx_command_t *command_definition,
-                                  void *http_main_config) {
+                            ngx_command_t *command_definition,
+                            void *http_main_config) {
   // TODO: validate the args given to the directive
 
   // Find the firetail_api_key_field given the config pointer & offset in cmd
@@ -322,9 +322,7 @@ ngx_command_t kFiretailCommands[3] = {
      // configuration
      EnableFiretailDirectiveInit, NGX_HTTP_MAIN_CONF_OFFSET,
      offsetof(FiretailMainConfig, FiretailApiToken), NULL},
-    {
-     ngx_string("firetail_url"),
-     NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+    {ngx_string("firetail_url"), NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
      EnableFiretailUrlInit, NGX_HTTP_MAIN_CONF_OFFSET,
      offsetof(FiretailMainConfig, FiretailUrl), NULL},
     ngx_null_command};
