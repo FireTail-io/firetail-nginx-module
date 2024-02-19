@@ -119,6 +119,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     //               schema);
     // struct ValidateResponseBody_return validation_result =
     validation_result = response_body_validator(
+	(char *)main_config->FiretailUrl.data, main_config->FiretailUrl.len,
         (char *)main_config->FiretailApiToken.data, main_config->FiretailApiToken.len,
         (char *)ctx->request_body, (int)ctx->request_body_size,
         schema, strlen(schema), ctx->response_body, ctx->response_body_size,

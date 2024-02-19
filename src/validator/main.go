@@ -95,8 +95,9 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 }
 
 //export ValidateResponseBody
-func ValidateResponseBody(reqBodyCharPtr unsafe.Pointer,
-        reqBodyLength C.int,
+func ValidateResponseBody(urlCharPtr unsafe.Pointer,
+        urlLength C.int,
+	reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
         tokenCharPtr unsafe.Pointer, tokenLength C.int,
         specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
@@ -106,11 +107,14 @@ func ValidateResponseBody(reqBodyCharPtr unsafe.Pointer,
 
 	specSlice := C.GoBytes(specBytes, specLength)
 	tokenSlice := C.GoBytes(tokenCharPtr, tokenLength)
+	urlSlice := C.GoBytes(urlCharPtr, urlLength)
+
+	log.Println("URL: ", string(urlSlice))
 
 	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
 		OpenapiBytes:             specSlice,
 		LogsApiToken:             string(tokenSlice),
-		LogsApiUrl:               "https://www.sg",
+		LogsApiUrl:               string(urlSlice),
 		DebugErrs:                true,
 		EnableRequestValidation:  false,
 		EnableResponseValidation: true,
