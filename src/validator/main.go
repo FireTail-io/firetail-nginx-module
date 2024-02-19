@@ -95,18 +95,22 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 }
 
 //export ValidateResponseBody
-func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
+func ValidateResponseBody(reqBodyCharPtr unsafe.Pointer,
+        reqBodyLength C.int,
+        tokenCharPtr unsafe.Pointer, tokenLength C.int,
+        specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	statusCode C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
 
 	specSlice := C.GoBytes(specBytes, specLength)
+	tokenSlice := C.GoBytes(tokenCharPtr, tokenLength)
 
 	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
 		OpenapiBytes:             specSlice,
-		LogsApiToken:             "",
-		LogsApiUrl:               "",
+		LogsApiToken:             string(tokenSlice),
+		LogsApiUrl:               "https://www.sg",
 		DebugErrs:                true,
 		EnableRequestValidation:  false,
 		EnableResponseValidation: true,
@@ -135,7 +139,7 @@ func ValidateResponseBody(specBytes unsafe.Pointer, specLength C.int,
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
 		string(methodSlice), string(pathSlice),
-		io.NopCloser(bytes.NewBuffer([]byte{})),
+		io.NopCloser(bytes.NewBuffer(C.GoBytes(reqBodyCharPtr, reqBodyLength))),
 	))
 
 	// for profiling the CPU, uncomment this and run
