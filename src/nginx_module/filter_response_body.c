@@ -119,12 +119,13 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     //               schema);
     // struct ValidateResponseBody_return validation_result =
     validation_result = response_body_validator(
-	(char *)main_config->FiretailUrl.data, main_config->FiretailUrl.len,
-        (char *)main_config->FiretailApiToken.data, main_config->FiretailApiToken.len,
-        (char *)ctx->request_body, (int)ctx->request_body_size,
-        schema, strlen(schema), ctx->response_body, ctx->response_body_size,
-        request->unparsed_uri.data, request->unparsed_uri.len, ctx->status_code,
-        request->method_name.data, request->method_name.len);
+        (char *)main_config->FiretailUrl.data, main_config->FiretailUrl.len,
+        (char *)main_config->FiretailApiToken.data,
+        main_config->FiretailApiToken.len, (char *)ctx->request_body,
+        (int)ctx->request_body_size, schema, strlen(schema), ctx->response_body,
+        ctx->response_body_size, request->unparsed_uri.data,
+        request->unparsed_uri.len, ctx->status_code, request->method_name.data,
+        request->method_name.len);
     ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
                   "Validation response result: %d", validation_result.r0);
     ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
