@@ -97,8 +97,8 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 //export ValidateResponseBody
 func ValidateResponseBody(urlCharPtr unsafe.Pointer,
         urlLength C.int,
-	reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
         tokenCharPtr unsafe.Pointer, tokenLength C.int,
+        reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
         specBytes unsafe.Pointer, specLength C.int,
 	resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
@@ -148,9 +148,9 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 
 	// for profiling the CPU, uncomment this and run
 	// go tool pprof http://localhost:6060/debug/pprof/profile\?seconds\=30
-	/* go func() {
+	/*go func() {
 		        log.Println(http.ListenAndServe("localhost:6060", nil))
-	   }() */
+	}() */
 
 	// If the response code or body differs after being passed through the middleware then we'll just infer it doesn't
 	// match the spec
