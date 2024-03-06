@@ -15,9 +15,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
   struct ValidateResponseBody_return validation_result;
 
-  // Set the logging level to debug
-  // TODO: remove
-  request->connection->log->log_level = NGX_LOG_DEBUG;
+  // You can set the logging level to debug here
+  //request->connection->log->log_level = NGX_LOG_DEBUG;
 
   // Get our context so we can store the response body data
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
@@ -25,22 +24,14 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     return kNextResponseBodyFilter(request, chain_head);
   }
 
-  /*if (ctx == NULL) {
-    return NGX_ERROR;
-  }*/
-
   // Determine the length of the response body chain we've been given, and if
   // the chain contains the last link
-  int chain_contains_last_link = 0;
   long new_response_body_parts_size = 0;
 
   for (ngx_chain_t *current_chain_link = chain_head; current_chain_link != NULL;
        current_chain_link = current_chain_link->next) {
     new_response_body_parts_size +=
         current_chain_link->buf->last - current_chain_link->buf->pos;
-    if (current_chain_link->buf->last_buf) {
-      chain_contains_last_link = 1;
-    }
   }
 
   // If we read in more bytes from this chain then we need to create a new char*
@@ -78,12 +69,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     ngx_pfree(request->pool, updated_response_body);
   }
 
-  // If it doesn't contain the last buffer of the response body, pass everything
-  // onto the next filter - we do not care.
-  if (!chain_contains_last_link) {
-    // return kNextResponseBodyFilter(request, chain_head);
-  }
-
   FiretailMainConfig *main_config =
       ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
@@ -115,9 +100,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     ngx_memcpy(schema, main_config->FiretailAppSpec.data,
                main_config->FiretailAppSpec.len);
 
-    // ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "schema: %s",
-    //               schema);
-    // struct ValidateResponseBody_return validation_result =
     validation_result = response_body_validator(
         (char *)main_config->FiretailUrl.data, main_config->FiretailUrl.len,
         (char *)main_config->FiretailApiToken.data,
@@ -143,13 +125,12 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
     validation_result.r1 = (char *)ctx->request_result;
   }
 
-  if (ctx->bypass_response == 0) {
-    return ngx_http_firetail_send(
-        request, ctx,
-        ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
-  } else {
+  if (ctx->bypass_response == 1)
     return ngx_http_firetail_send(
         request, ctx,
         ngx_http_filter_buffer(request, (u_char *)ctx->request_result), NULL);
-  }
+
+  return ngx_http_firetail_send(
+      request, ctx,
+      ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
 }

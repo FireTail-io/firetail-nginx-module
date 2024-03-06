@@ -110,11 +110,13 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 	urlSlice := C.GoBytes(urlCharPtr, urlLength)
 
 	log.Println("URL: ", string(urlSlice))
+	trimTokenSlice := strings.TrimSpace(string(tokenSlice))
+	trimUrlSlice := strings.TrimSpace(string(urlSlice))
 
 	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
 		OpenapiBytes:             specSlice,
-		LogsApiToken:             string(tokenSlice),
-		LogsApiUrl:               string(urlSlice),
+		LogsApiToken:             trimTokenSlice,
+		LogsApiUrl:               trimUrlSlice,
 		DebugErrs:                true,
 		EnableRequestValidation:  false,
 		EnableResponseValidation: true,
