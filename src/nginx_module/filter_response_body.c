@@ -16,7 +16,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
   struct ValidateResponseBody_return validation_result;
 
   // You can set the logging level to debug here
-  //request->connection->log->log_level = NGX_LOG_DEBUG;
+  // request->connection->log->log_level = NGX_LOG_DEBUG;
 
   // Get our context so we can store the response body data
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
