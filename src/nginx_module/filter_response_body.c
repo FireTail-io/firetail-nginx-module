@@ -6,11 +6,6 @@
 #include "firetail_module.h"
 #include "filter_firetail_send.h"
 
-size_t LibcurlNoopWriteFunction(void *buffer, size_t size, size_t nmemb,
-                                void *userp) {
-  return size * nmemb;
-}
-
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request,
                                      ngx_chain_t *chain_head) {
   struct ValidateResponseBody_return validation_result;
