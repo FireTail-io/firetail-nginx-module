@@ -16,5 +16,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-//replace github.com/FireTail-io/firetail-go-lib => github.com/FireTail-io/firetail-go-lib v0.1.0
-replace github.com/FireTail-io/firetail-go-lib => github.com/muhammadn/firetail-go-lib v0.0.0-20240223085919-e878127c5c1c
+replace github.com/FireTail-io/firetail-go-lib => github.com/FireTail-io/firetail-go-lib v0.2.1
