@@ -29,6 +29,62 @@ The Firetail NGINX Module will be receiving 401 responses as you have not yet co
 
 
 
+### Request Validation
+
+To demonstrate request validation a `POST /proxy/profile/{username}/comment` operation is defined in the provided [appspec.yml](./dev/appspec.yml), with one profile defined in the provided [nginx.conf](./dev/nginx.conf): `POST /proxy/profile/alice/comment`. A `proxy_pass` directive is used to forward requests to `/profile/alice/comment` as the request body validation will not occur on locations where the `return` directive is used.
+
+Making a curl request to `POST /profile/alice/comment` should yield the following result, which validates successfully against the provided appspec:
+
+```bash
+curl localhost:8080/proxy/profile/alice/comment -X POST -H "Content-Type: application/json" -d '{"comment":"Hello world!"}
+```
+
+```json
+{"message":"Success!"}
+```
+
+If you alter the request body in any way that deviates from the appspec you will receive an error response from the Firetail nginx module instead:
+
+```bash
+curl localhost:8080/proxy/profile/alice/comment -X POST -H "Content-Type: application/json" -d '{"comment":12345}'
+```
+
+```json
+{"code":400,"title":"something's wrong with your request body","detail":"the request's body did not match your appspec: request body has an error: doesn't match the schema: Error at \"/comment\": field must be set to string or not be present\nSchema:\n  {\n    \"type\": \"string\"\n  }\n\nValue:\n  \"number, integer\"\n"}
+```
+
+
+
+### Response Validation
+
+To demonstrate response validation a `GET /profile/{username}` operation is defined in the provided [appspec.yml](./dev/appspec.yml), and two profiles are defined in the provided [nginx.conf](./dev/nginx.conf): `GET /profile/alice` and `GET /profile/bob`.
+
+Making a curl request to `GET /profile/alice` should yield the following result, which validates successfully against the provided appspec, as it returns only Alice's username and friend count:
+
+```bash
+curl localhost:8080/profile/alice
+```
+
+```json
+{"username":"alice", "friends": 123456789}
+```
+
+Making a curl request to `GET /profile/bob` will yield a different result, as the response body defined in our nginx.conf erroneously includes Bob's address. This does not validate against our appspec, so the response body is overwritten by the Firetail middleware, which can protect Bob from having his personally identifiable information disclosed by our faulty application. For the purposes of this demo, the Firetail library's debugging responses are enabled so we get a verbose explanation of the problem:
+
+```bash
+curl localhost:8080/profile/bob
+```
+
+```json
+{
+    "code": 500,
+    "title": "internal server error",
+    "detail": "the response's body did not match your appspec: response body doesn't match the schema: property \"address\" is unsupported\nSchema:\n  {\n    \"additionalProperties\": false,\n    \"properties\": {\n      \"friends\": {\n        \"minimum\": 0,\n        \"type\": \"integer\"\n      },\n      \"username\": {\n        \"type\": \"string\"\n      }\n    },\n    \"type\": \"object\"\n  }\n\nValue:\n  {\n    \"address\": \"Oh dear, this shouldn't be public!\",\n    \"friends\": 123456789,\n    \"username\": \"bob\"\n  }\n"
+}
+```
+
+
+
 ### VSCode
 
 For local development with VSCode you'll probably want to download the nginx tarball matching the version you're developing for, and configure it:
@@ -76,7 +132,7 @@ You can then use the `configure` command to generate a `makefile` to build the d
 
 ```bash
 cd nginx-1.24.0
-./configure --with-compat --add-dynamic-module=../src
+./configure --with-compat --add-dynamic-module=../src/nginx_module
 make modules
 ```
 
@@ -85,6 +141,10 @@ You will then need to install the Firetail NGINX Module's dependencies, [curl](h
 ```bash
 make modules
 ```
+
+The Firetail NGINX module is also dependent upon a validator module, written in Go.
+
+// TODO: docs for building the Golang validator 
 
 
 

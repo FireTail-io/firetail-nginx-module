@@ -1,0 +1,181 @@
+openapi: 3.0.1
+info:
+  title: Firetail Nginx Module Example
+  version: "0.1"
+paths:
+  /:
+    get:
+      summary: Returns an index.html
+      responses:
+        "200":
+          description: An index.html file
+          content:
+            text/plain: {}
+  /health:
+    get:
+      summary: Returns the status of the server
+      responses:
+        "200":
+          $ref: "#/components/responses/Healthy"
+  /notfound:
+    get:
+      summary: Returns a mock 404 response
+      responses:
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /unhealthy:
+    get:
+      summary: Returns a mock 400 response
+      responses:
+        "500":
+          $ref: "#/components/responses/Unhealthy"
+  /proxy/health:
+    get:
+      summary: Returns the status of the server
+      responses:
+        "200":
+          $ref: "#/components/responses/Healthy"
+  /proxy/notfound:
+    get:
+      summary: Returns a mock 404 response
+      responses:
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /proxy/unhealthy:
+    get:
+      summary: Returns a mock 400 response
+      responses:
+        "500":
+          $ref: "#/components/responses/Unhealthy"
+  /profile/{username}:
+    get:
+      summary: Returns a user's profile
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            description: The username of the user whose profile should be returned
+            type: string
+            minLength: 3
+            maxLength: 20
+      responses:
+        "200":
+          description: A user's profile
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  username:
+                    type: string
+                  friends:
+                    type: integer
+                    minimum: 0
+  /profile/{username}/comment:
+    post:
+      summary: Post a comment on a user's profile
+      requestBody:
+        description: The comment to be added to the user's profile
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: ["comment"]
+              additionalProperties: false
+              properties:
+                comment:
+                  type: string
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            description: The username of the user whose profile should be returned
+            type: string
+            minLength: 3
+            maxLength: 20
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: False
+                properties:
+                  message:
+                    type: string
+  /proxy/profile/{username}/comment:
+    post:
+      required: true
+      summary: Post a comment on a user's profile
+      requestBody:
+        description: The comment to be added to the user's profile
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: ["comment"]
+              additionalProperties: false
+              properties:
+                comment:
+                  type: string
+      parameters:
+        - in: path
+          name: username
+          required: true
+          schema:
+            description: The username of the user whose profile should be returned
+            type: string
+            minLength: 3
+            maxLength: 20
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: False
+                properties:
+                  message:
+                    type: string
+components:
+  responses:
+    Healthy:
+      description: A mocked response from a /health endpoint on a healthy service
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              message:
+                type: string
+                enum: ["I'm healthy! 💖"]
+    Unhealthy:
+      description: A mocked response from a /health endpoint on an unhealthy service
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              message:
+                type: string
+                enum: ["I'm unhealthy! 🤒"]
+    NotFound:
+      description: A mocked 404 response
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              message:
+                type: string
+                enum: ["Not Found 🤷"]
