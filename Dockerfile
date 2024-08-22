@@ -1,3 +1,5 @@
+ARG NGINX_VERSION=1.24.0
+
 FROM golang:1.21.0-bullseye AS build-golang
 
 # Make a /src and /dist directory, with our workdir set to /src
@@ -13,8 +15,7 @@ RUN CGO_ENABLED=1 go build -buildmode c-shared -o /dist/firetail-validator.so .
 RUN rm /dist/firetail-validator.h
 
 FROM debian:bullseye-slim AS build-c
-
-ENV NGINX_VERSION 1.24.0
+ARG NGINX_VERSION
 
 # Curl the tarball of the nginx version matching that of the container we want to modify
 RUN apt update && apt install -y curl
@@ -32,10 +33,10 @@ RUN cd /tmp/nginx-${NGINX_VERSION} && \
     make modules
 
 # Copy our dynamic module & its dependencies into the image for the nginx version we want to use
-FROM nginx:1.24.0 AS firetail-nginx
+FROM nginx:${NGINX_VERSION} AS firetail-nginx
 RUN apt-get update && apt-get install -y libjson-c-dev
-COPY --from=build-golang /dist/* /etc/nginx/modules/
-COPY --from=build-c /tmp/nginx-${NGINX_VERSION}/objs/* /etc/nginx/modules/
+COPY --from=build-golang /dist/firetail-validator.so /etc/nginx/modules/
+COPY --from=build-c /tmp/nginx-${NGINX_VERSION}/objs/ngx_firetail_module.so /etc/nginx/modules/
 
 # An image for local dev with a custom nginx.conf and index.html
 FROM firetail-nginx as firetail-nginx-dev
