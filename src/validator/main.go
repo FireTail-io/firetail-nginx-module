@@ -96,10 +96,10 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 
 //export ValidateResponseBody
 func ValidateResponseBody(urlCharPtr unsafe.Pointer,
-        urlLength C.int,
-        tokenCharPtr unsafe.Pointer, tokenLength C.int,
-        reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
-        specBytes unsafe.Pointer, specLength C.int,
+	urlLength C.int,
+	tokenCharPtr unsafe.Pointer, tokenLength C.int,
+	reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
+	specBytes unsafe.Pointer, specLength C.int,
 	resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	statusCode C.int,
@@ -109,7 +109,6 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 	tokenSlice := C.GoBytes(tokenCharPtr, tokenLength)
 	urlSlice := C.GoBytes(urlCharPtr, urlLength)
 
-	log.Println("URL: ", string(urlSlice))
 	trimTokenSlice := strings.TrimSpace(string(tokenSlice))
 	trimUrlSlice := strings.TrimSpace(string(urlSlice))
 
