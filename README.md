@@ -39,6 +39,8 @@ See [dev/nginx.conf](./dev/nginx.conf) for an example of this in action.
 
 You should use a module such as the [ngx_http_lua_module](https://github.com/openresty/lua-nginx-module) to avoid placing plaintext credentials in your `nginx.conf`, and instead make use of [system environment variables](https://github.com/openresty/lua-nginx-module#system-environment-variable-support).
 
+Once you've configured your `nginx.conf` you will also need to provide an OpenAPI specification. The FireTail NGINX Module expects to find your OpenAPI specification at `/etc/nginx/appspec.yml`.
+
 
 
 ## Local Development
