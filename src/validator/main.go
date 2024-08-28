@@ -20,12 +20,13 @@ var firetailRequestMiddleware func(next http.Handler) http.Handler
 var firetailResponseMiddleware func(next http.Handler) http.Handler
 
 //export ValidateRequestBody
-func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
+func ValidateRequestBody(
+	specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int,
-	headersCharPtr unsafe.Pointer, headersLength C.int) (C.int, *C.char) {
-
+	headersCharPtr unsafe.Pointer, headersLength C.int,
+) (C.int, *C.char) {
 	// Create the middleware if it hasn't already been done
 	if firetailRequestMiddleware == nil {
 		var err error
@@ -44,16 +45,6 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 		}
 	}
 
-	pathSlice := C.GoBytes(pathCharPtr, pathLength)
-	bodySlice := C.GoBytes(bodyCharPtr, bodyLength)
-	methodSlice := C.GoBytes(methodCharPtr, methodLength)
-	headersSlice := C.GoBytes(headersCharPtr, headersLength)
-
-	var headers map[string][]string
-	if err := json.Unmarshal(headersSlice, &headers); err != nil {
-		panic(err)
-	}
-
 	// Create a fake handler
 	placeholderResponse := []byte{}
 	myHandler := &stubHandler{
@@ -67,41 +58,39 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	// Create a local response writer to record what the middleware says we should respond with
 	localResponseWriter := httptest.NewRecorder()
 
+	// Create the go request object we'll pass to the middleware
 	mockRequest := httptest.NewRequest(
-		string(methodSlice), string(pathSlice),
-		io.NopCloser(bytes.NewBuffer(bodySlice)))
-
+		string(C.GoBytes(methodCharPtr, methodLength)),
+		string(C.GoBytes(pathCharPtr, pathLength)),
+		io.NopCloser(bytes.NewBuffer(C.GoBytes(bodyCharPtr, bodyLength))),
+	)
+	// Add the headers to the mock request
+	var headers map[string][]string
+	if err := json.Unmarshal(C.GoBytes(headersCharPtr, headersLength), &headers); err != nil {
+		panic(err)
+	}
 	for k, v := range headers {
-		// convert value (v) to comma-delimited values
-		// key "k" is still as it is
+		// convert value (v) to comma-delimited values. key "k" is still as it is
 		mockRequest.Header.Add(k, strings.Join(v[:], ", "))
 	}
 
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, mockRequest)
 
-	// If the body differs after being passed through the middleware then we'll just infer it doesn't
-	// match the spec
+	// If the body differs after being passed through the middleware then we'll just infer it doesn't match the spec
 	middlewareResponseBodyBytes, err := io.ReadAll(localResponseWriter.Body)
-	response := C.CString(string(middlewareResponseBodyBytes))
+	responseCString := C.CString(string(middlewareResponseBodyBytes))
 
-	if err != nil {
-		log.Println("Failed to read request body bytes from middleware, err:", err.Error())
-		// return 1 is error by convention
-		return 1, response
-	}
-	if string(middlewareResponseBodyBytes) != string(placeholderResponse) {
-		log.Printf("Middleware altered response body, original: %s, new: %s", string(placeholderResponse), string(middlewareResponseBodyBytes))
-		// return 1 is error by convention
-		return 1, response
+	if err != nil || string(middlewareResponseBodyBytes) != string(placeholderResponse) {
+		return 1, responseCString // return 1 is error by convention
 	}
 
-	// return 0 is success by convention
-	return 0, response
+	return 0, responseCString // return 0 is success by convention
 }
 
 //export ValidateResponseBody
-func ValidateResponseBody(urlCharPtr unsafe.Pointer,
+func ValidateResponseBody(
+	urlCharPtr unsafe.Pointer,
 	urlLength C.int,
 	tokenCharPtr unsafe.Pointer, tokenLength C.int,
 	reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
@@ -109,20 +98,14 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 	resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	statusCode C.int,
-	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
-
-	tokenSlice := C.GoBytes(tokenCharPtr, tokenLength)
-	urlSlice := C.GoBytes(urlCharPtr, urlLength)
-
-	trimTokenSlice := strings.TrimSpace(string(tokenSlice))
-	trimUrlSlice := strings.TrimSpace(string(urlSlice))
-
+	methodCharPtr unsafe.Pointer, methodLength C.int,
+) (C.int, *C.char) {
 	if firetailResponseMiddleware == nil {
 		var err error
 		firetailResponseMiddleware, err = firetail.GetMiddleware(&firetail.Options{
 			OpenapiBytes:             C.GoBytes(specBytes, specLength),
-			LogsApiToken:             trimTokenSlice,
-			LogsApiUrl:               trimUrlSlice,
+			LogsApiToken:             strings.TrimSpace(string(C.GoBytes(tokenCharPtr, tokenLength))),
+			LogsApiUrl:               strings.TrimSpace(string(C.GoBytes(urlCharPtr, urlLength))),
 			DebugErrs:                true,
 			EnableRequestValidation:  false,
 			EnableResponseValidation: true,
@@ -133,11 +116,8 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 		}
 	}
 
-	resBodySlice := C.GoBytes(resBodyCharPtr, resBodyLength)
-	pathSlice := C.GoBytes(pathCharPtr, pathLength)
-	methodSlice := C.GoBytes(methodCharPtr, methodLength)
-
 	// Create a handler returning the response body and status code from nginx
+	resBodySlice := C.GoBytes(resBodyCharPtr, resBodyLength)
 	myHandler := &stubHandler{
 		responseCode:  int(statusCode),
 		responseBytes: resBodySlice,
@@ -151,7 +131,7 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
-		string(methodSlice), string(pathSlice),
+		string(C.GoBytes(methodCharPtr, methodLength)), string(C.GoBytes(pathCharPtr, pathLength)),
 		io.NopCloser(bytes.NewBuffer(C.GoBytes(reqBodyCharPtr, reqBodyLength))),
 	))
 
@@ -164,26 +144,13 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 	// If the response code or body differs after being passed through the middleware then we'll just infer it doesn't
 	// match the spec
 	middlewareResponseBodyBytes, err := io.ReadAll(localResponseWriter.Body)
-	response := C.CString(string(middlewareResponseBodyBytes))
+	responseCString := C.CString(string(middlewareResponseBodyBytes))
 
-	if err != nil {
-		log.Println("Failed to read response body bytes from middleware, err:", err.Error())
-		// return 1 is error by convention
-		return 1, response
-	}
-	if localResponseWriter.Code != int(statusCode) {
-		log.Printf("Middleware altered status code from %d to %d", statusCode, localResponseWriter.Code)
-		// return 1 is error by convention
-		return 1, response
-	}
-	if string(middlewareResponseBodyBytes) != string(resBodySlice) {
-		log.Printf("Middleware altered response body, original: %s, new: %s", string(resBodySlice), string(middlewareResponseBodyBytes))
-		// return 1 is error by convention
-		return 1, response
+	if err != nil || localResponseWriter.Code != int(statusCode) || string(middlewareResponseBodyBytes) != string(resBodySlice) {
+		return 1, responseCString // return 1 is error by convention
 	}
 
-	// return 0 is success by convention
-	return 0, response
+	return 0, responseCString // return 0 is success by convention
 }
 
 func main() {}
