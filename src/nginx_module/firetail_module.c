@@ -238,8 +238,6 @@ static void *CreateFiretailMainConfig(ngx_conf_t *configuration_object) {
   char data[SIZE];
   char str[SIZE];
 
-  printf("Loading AppSpec Schema...\n");
-
   // open schema spec
   schema = fopen("/etc/nginx/appspec.yml", "r");
   if (schema == NULL) {
