@@ -14,6 +14,10 @@ import (
 
 	firetail "github.com/FireTail-io/firetail-go-lib/middlewares/http"
 )
+import "net/http"
+
+var firetailRequestMiddleware func(next http.Handler) http.Handler
+var firetailResponseMiddleware func(next http.Handler) http.Handler
 
 //export ValidateRequestBody
 func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
@@ -22,20 +26,22 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int,
 	headersCharPtr unsafe.Pointer, headersLength C.int) (C.int, *C.char) {
 
-	specSlice := C.GoBytes(specBytes, specLength)
-
-	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
-		OpenapiBytes:             specSlice,
-		LogsApiToken:             "",
-		LogsApiUrl:               "",
-		DebugErrs:                true,
-		EnableRequestValidation:  true,
-		EnableResponseValidation: false,
-	})
-	if err != nil {
-		log.Println("Failed to initialise Firetail middleware, err:", err.Error())
-		// return 1 is error by convention
-		return 1, nil
+	// Create the middleware if it hasn't already been done
+	if firetailRequestMiddleware == nil {
+		var err error
+		firetailRequestMiddleware, err = firetail.GetMiddleware(&firetail.Options{
+			OpenapiBytes:             C.GoBytes(specBytes, specLength),
+			LogsApiToken:             "",
+			LogsApiUrl:               "",
+			DebugErrs:                true,
+			EnableRequestValidation:  true,
+			EnableResponseValidation: false,
+		})
+		if err != nil {
+			log.Println("Failed to initialise Firetail middleware, err:", err.Error())
+			// return 1 is error by convention
+			return 1, nil
+		}
 	}
 
 	pathSlice := C.GoBytes(pathCharPtr, pathLength)
@@ -56,7 +62,7 @@ func ValidateRequestBody(specBytes unsafe.Pointer, specLength C.int,
 	}
 
 	// Create our middleware instance with the stub handler
-	myMiddleware := firetailMiddleware(myHandler)
+	myMiddleware := firetailRequestMiddleware(myHandler)
 
 	// Create a local response writer to record what the middleware says we should respond with
 	localResponseWriter := httptest.NewRecorder()
@@ -105,24 +111,26 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 	statusCode C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int) (C.int, *C.char) {
 
-	specSlice := C.GoBytes(specBytes, specLength)
 	tokenSlice := C.GoBytes(tokenCharPtr, tokenLength)
 	urlSlice := C.GoBytes(urlCharPtr, urlLength)
 
 	trimTokenSlice := strings.TrimSpace(string(tokenSlice))
 	trimUrlSlice := strings.TrimSpace(string(urlSlice))
 
-	firetailMiddleware, err := firetail.GetMiddleware(&firetail.Options{
-		OpenapiBytes:             specSlice,
-		LogsApiToken:             trimTokenSlice,
-		LogsApiUrl:               trimUrlSlice,
-		DebugErrs:                true,
-		EnableRequestValidation:  false,
-		EnableResponseValidation: true,
-	})
-	if err != nil {
-		log.Println("Failed to initialise Firetail middleware, err:", err.Error())
-		return 0, nil
+	if firetailResponseMiddleware == nil {
+		var err error
+		firetailResponseMiddleware, err = firetail.GetMiddleware(&firetail.Options{
+			OpenapiBytes:             C.GoBytes(specBytes, specLength),
+			LogsApiToken:             trimTokenSlice,
+			LogsApiUrl:               trimUrlSlice,
+			DebugErrs:                true,
+			EnableRequestValidation:  false,
+			EnableResponseValidation: true,
+		})
+		if err != nil {
+			log.Println("Failed to initialise Firetail middleware, err:", err.Error())
+			return 0, nil
+		}
 	}
 
 	resBodySlice := C.GoBytes(resBodyCharPtr, resBodyLength)
@@ -136,7 +144,7 @@ func ValidateResponseBody(urlCharPtr unsafe.Pointer,
 	}
 
 	// Create our middleware instance with the stub handler
-	myMiddleware := firetailMiddleware(myHandler)
+	myMiddleware := firetailResponseMiddleware(myHandler)
 
 	// Create a local response writer to record what the middleware says we should respond with
 	localResponseWriter := httptest.NewRecorder()
