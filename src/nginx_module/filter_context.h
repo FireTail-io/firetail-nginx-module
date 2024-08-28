@@ -16,8 +16,10 @@ typedef struct {
   u_char *server;
   long request_body_size;
   long response_body_size;
+  long request_headers_json_size;
   u_char *request_body;
   u_char *response_body;
+  u_char *request_headers_json;
   long request_header_count;
   long response_header_count;
   HTTPHeader *request_headers;

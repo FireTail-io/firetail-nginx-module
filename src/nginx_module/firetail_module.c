@@ -54,9 +54,9 @@ static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *request)
     json_object_array_add(array, jobj);
     json_object_object_add(log_root, (char *)h[i].key.data, array);
   }
-
-  void *h_json_string = (void *)json_object_to_json_string(log_root);
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "json value %s", h_json_string);
+  ctx->request_headers_json = (u_char *)json_object_to_json_string(log_root);
+  ctx->request_headers_json_size = strlen((char *)ctx->request_headers_json);
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "json value %s", (char *)ctx->request_headers_json);
 
   // Determine the length of the request body chain we've been given
   long new_request_body_parts_size = 0;
@@ -106,10 +106,10 @@ static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *request)
   char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
   ngx_memcpy(schema, main_config->FiretailAppSpec.data, main_config->FiretailAppSpec.len);
 
-  struct ValidateRequestBody_return validation_result =
-      request_body_validator(schema, strlen(schema), ctx->request_body, ctx->request_body_size,
-                             request->unparsed_uri.data, request->unparsed_uri.len, request->method_name.data,
-                             request->method_name.len, h_json_string, strlen(h_json_string));
+  struct ValidateRequestBody_return validation_result = request_body_validator(
+      schema, strlen(schema), ctx->request_body, ctx->request_body_size, request->unparsed_uri.data,
+      request->unparsed_uri.len, request->method_name.data, request->method_name.len, (char *)ctx->request_headers_json,
+      ctx->request_headers_json_size);
 
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validation request result: %d", validation_result.r0);
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validating request body: %s", validation_result.r1);

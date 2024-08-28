@@ -14,7 +14,9 @@ import (
 
 	firetail "github.com/FireTail-io/firetail-go-lib/middlewares/http"
 )
-import "net/http"
+import (
+	"net/http"
+)
 
 var firetailRequestMiddleware func(next http.Handler) http.Handler
 var firetailResponseMiddleware func(next http.Handler) http.Handler
@@ -94,6 +96,7 @@ func ValidateResponseBody(
 	urlLength C.int,
 	tokenCharPtr unsafe.Pointer, tokenLength C.int,
 	reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
+	reqHeadersJsonCharPtr unsafe.Pointer, reqHeadersJsonLength C.int,
 	specBytes unsafe.Pointer, specLength C.int,
 	resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
@@ -129,11 +132,25 @@ func ValidateResponseBody(
 	// Create a local response writer to record what the middleware says we should respond with
 	localResponseWriter := httptest.NewRecorder()
 
-	// Serve the request to the middlware
-	myMiddleware.ServeHTTP(localResponseWriter, httptest.NewRequest(
+	// Create the go request object we'll pass to the middleware
+	mockRequest := httptest.NewRequest(
 		string(C.GoBytes(methodCharPtr, methodLength)), string(C.GoBytes(pathCharPtr, pathLength)),
 		io.NopCloser(bytes.NewBuffer(C.GoBytes(reqBodyCharPtr, reqBodyLength))),
-	))
+	)
+	// Add the headers to the mock request
+	if reqHeadersJsonCharPtr != nil {
+		var headers map[string][]string
+		if err := json.Unmarshal(C.GoBytes(reqHeadersJsonCharPtr, reqHeadersJsonLength), &headers); err != nil {
+			panic(err)
+		}
+		for k, v := range headers {
+			// convert value (v) to comma-delimited values. key "k" is still as it is
+			mockRequest.Header.Add(k, strings.Join(v[:], ", "))
+		}
+	}
+
+	// Serve the request to the middlware
+	myMiddleware.ServeHTTP(localResponseWriter, mockRequest)
 
 	// for profiling the CPU, uncomment this and run
 	// go tool pprof http://localhost:6060/debug/pprof/profile\?seconds\=30
