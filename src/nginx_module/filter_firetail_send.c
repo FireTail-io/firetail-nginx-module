@@ -9,9 +9,7 @@
  only when we have a response from the server to validate the request Info here:
  https://mailman.nginx.org/pipermail/nginx-devel/2023-September/ARTW6X573LPVCRQJNZEWT33W4PFEKIPR.html
 */
-ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
-                                 FiretailFilterContext *ctx, ngx_buf_t *b,
-                                 char *error) {
+ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request, FiretailFilterContext *ctx, ngx_buf_t *b, char *error) {
   ngx_int_t rc;
   ngx_chain_t out;
   ngx_pool_cleanup_t *cln;
@@ -19,16 +17,14 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
   struct json_object *jobj;
   char *code;
 
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "Start of firetail send", NULL);
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Start of firetail send", NULL);
 
   ctx->done = 1;
 
   if (b == NULL) {
     // if there is an spec validation error by sending out
     // the error response gotten from the middleware
-    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Buffer is null",
-                  NULL);
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Buffer is null", NULL);
 
     // response parse the middleware json response
     jobj = json_tokener_parse(error);
@@ -57,8 +53,7 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
   cln = ngx_pool_cleanup_add(request->pool, 0);
   if (cln == NULL) {
     ngx_free(b->pos);
-    return ngx_http_filter_finalize_request(request, &ngx_firetail_module,
-                                            NGX_HTTP_INTERNAL_SERVER_ERROR);
+    return ngx_http_filter_finalize_request(request, &ngx_firetail_module, NGX_HTTP_INTERNAL_SERVER_ERROR);
   }
 
   if (request == request->main) {
@@ -76,13 +71,11 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
 
   if (rc == NGX_ERROR || rc > NGX_OK || request->header_only) {
     ngx_free(b->pos);
-    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                  "SENDING HEADERS...", NULL);
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "SENDING HEADERS...", NULL);
     return rc;
   }
 
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "Sending next RESPONSE body", NULL);
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Sending next RESPONSE body", NULL);
 
   cln->handler = ngx_http_firetail_cleanup;
   cln->data = b->pos;
@@ -93,8 +86,7 @@ ngx_int_t ngx_http_firetail_send(ngx_http_request_t *request,
   return kNextResponseBodyFilter(request, &out);
 }
 
-ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
-                                    ngx_chain_t *chain_head, char *error) {
+ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b, ngx_chain_t *chain_head, char *error) {
   ngx_chain_t out;
   char *code;
   struct json_object *jobj;
@@ -103,13 +95,11 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
 
   char empty_json[2] = "{}";
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "INCOMING Request Body: %s, json %s", ctx->request_body,
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "INCOMING Request Body: %s, json %s", ctx->request_body,
                 empty_json);
 
   if (b == NULL) {
-    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                  "Buffer for REQUEST is null", NULL);
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Buffer for REQUEST is null", NULL);
 
     // bypass response validation because we no longer need
     // to go through response validation
@@ -168,14 +158,12 @@ ngx_int_t ngx_http_firetail_request(ngx_http_request_t *request, ngx_buf_t *b,
   out.buf = b;
   out.next = NULL;
 
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "Sending next REQUEST body", NULL);
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Sending next REQUEST body", NULL);
   return NGX_OK;
   //  return kNextRequestBodyFilter(request, &out);
 }
 
-ngx_buf_t *ngx_http_filter_buffer(ngx_http_request_t *request,
-                                  u_char *response) {
+ngx_buf_t *ngx_http_filter_buffer(ngx_http_request_t *request, u_char *response) {
   ngx_buf_t *b;
 
   b = ngx_calloc_buf(request->pool);
@@ -183,8 +171,7 @@ ngx_buf_t *ngx_http_filter_buffer(ngx_http_request_t *request,
     return NULL;
   }
 
-  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0,
-                "Buffer is successful", NULL);
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Buffer is successful", NULL);
 
   b->pos = response;
   b->last = response + strlen((char *)response);
