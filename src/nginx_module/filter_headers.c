@@ -36,29 +36,6 @@ ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
     }
   }
 
-  // Count the response headers
-  for (ngx_list_part_t *response_header_list_part = &request->headers_out.headers.part;
-       response_header_list_part != NULL; response_header_list_part = response_header_list_part->next) {
-    ctx->response_header_count += response_header_list_part->nelts;
-  }
-
-  // Allocate memory for the response headers array
-  ctx->response_headers = ngx_palloc(request->pool, ctx->response_header_count * sizeof(HTTPHeader));
-
-  // Populate the response headers array
-  HTTPHeader *recorded_response_header = ctx->response_headers;
-  for (ngx_list_part_t *response_header_list_part = &request->headers_out.headers.part;
-       response_header_list_part != NULL; response_header_list_part = response_header_list_part->next) {
-    for (ngx_table_elt_t *response_header = response_header_list_part->elts;
-         (ngx_uint_t)response_header <
-         (ngx_uint_t)response_header_list_part->elts + response_header_list_part->nelts * sizeof(ngx_table_elt_t);
-         response_header++) {
-      recorded_response_header->key = response_header->key;
-      recorded_response_header->value = response_header->value;
-      recorded_response_header++;
-    }
-  }
-
   request->main_filter_need_in_memory = 1;
   request->allow_ranges = 0;
 

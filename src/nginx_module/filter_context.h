@@ -21,9 +21,7 @@ typedef struct {
   u_char *response_body;
   u_char *request_headers_json;
   long request_header_count;
-  long response_header_count;
   HTTPHeader *request_headers;
-  HTTPHeader *response_headers;
   ngx_uint_t done;
   ngx_uint_t bypass_response;
   u_char *request_result;
