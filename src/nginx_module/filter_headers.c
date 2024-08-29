@@ -11,16 +11,16 @@ ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
 
   // Copy the status code and server out of the headers
   ctx->status_code = request->headers_out.status;
-  ctx->server = request->headers_in.server.data;
 
   // Count the request headers
+  int request_header_count = 0;
   for (ngx_list_part_t *request_header_list_part = &request->headers_in.headers.part; request_header_list_part != NULL;
        request_header_list_part = request_header_list_part->next) {
-    ctx->request_header_count += request_header_list_part->nelts;
+    request_header_count += request_header_list_part->nelts;
   }
 
   // Allocate memory for the request headers array
-  ctx->request_headers = ngx_palloc(request->pool, ctx->request_header_count * sizeof(HTTPHeader));
+  ctx->request_headers = ngx_palloc(request->pool, request_header_count * sizeof(HTTPHeader));
 
   // Populate the request headers array
   HTTPHeader *recorded_request_header = ctx->request_headers;
