@@ -10,7 +10,8 @@ struct ValidateResponseBody_return {
   char* r1;
 };
 typedef struct ValidateResponseBody_return (*ValidateResponseBody)(char*, int, char*, int, char*, int, char*, int,
-                                                                   char*, int, void*, int, void*, int, int, void*, int);
+                                                                   char*, int, void*, int, char*, int, void*, int, int,
+                                                                   void*, int);
 
 struct ValidateRequestBody_return {
   int r0;

@@ -65,11 +65,28 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
   // middleware on the go side of things every time will be very inefficient.
 
   if (ctx->bypass_response == 0) {
+    // Get the response header values
+    json_object *response_headers_root = json_object_new_object();
+    for (ngx_list_part_t *response_header_list_part = &request->headers_out.headers.part;
+         response_header_list_part != NULL; response_header_list_part = response_header_list_part->next) {
+      for (ngx_table_elt_t *response_header = response_header_list_part->elts;
+           (ngx_uint_t)response_header <
+           (ngx_uint_t)response_header_list_part->elts + response_header_list_part->nelts * sizeof(ngx_table_elt_t);
+           response_header++) {
+        json_object_object_add(response_headers_root, (char *)response_header->key.data,
+                               json_object_new_string((char *)response_header->value.data));
+      }
+    }
+    // Don't forget to add the Content-Type; NGINX doesn't keep it in `headers_out.headers` - it gets special treatment.
+    json_object_object_add(response_headers_root, (char *)"Content-Type",
+                           json_object_new_string((char *)request->headers_out.content_type.data));
+    char *response_headers_json_string = (char *)json_object_to_json_string(response_headers_root);
+
+    // Load the validator module & get the ValidateResponseBody function
     void *validator_module = dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
     if (!validator_module) {
       return NGX_ERROR;
     }
-
     ValidateResponseBody response_body_validator =
         (ValidateResponseBody)dlsym(validator_module, "ValidateResponseBody");
     char *error;
@@ -86,8 +103,9 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
         (char *)main_config->FiretailUrl.data, main_config->FiretailUrl.len, (char *)main_config->FiretailApiToken.data,
         main_config->FiretailApiToken.len, (char *)ctx->request_body, (int)ctx->request_body_size,
         (char *)ctx->request_headers_json, (int)ctx->request_headers_json_size, schema, strlen(schema),
-        ctx->response_body, ctx->response_body_size, request->unparsed_uri.data, request->unparsed_uri.len,
-        ctx->status_code, request->method_name.data, request->method_name.len);
+        ctx->response_body, ctx->response_body_size, response_headers_json_string, strlen(response_headers_json_string),
+        request->unparsed_uri.data, request->unparsed_uri.len, ctx->status_code, request->method_name.data,
+        request->method_name.len);
     ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validation response result: %d", validation_result.r0);
     ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validating response body: %s", validation_result.r1);
 

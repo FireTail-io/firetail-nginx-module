@@ -99,6 +99,7 @@ func ValidateResponseBody(
 	reqHeadersJsonCharPtr unsafe.Pointer, reqHeadersJsonLength C.int,
 	specBytes unsafe.Pointer, specLength C.int,
 	resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
+	resHeadersJsonCharPtr unsafe.Pointer, resHeadersJsonLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	statusCode C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int,
@@ -120,10 +121,19 @@ func ValidateResponseBody(
 	}
 
 	// Create a handler returning the response body and status code from nginx
+	var responseHeaders map[string]string
+	if resHeadersJsonCharPtr != nil {
+		if err := json.Unmarshal(C.GoBytes(resHeadersJsonCharPtr, resHeadersJsonLength), &responseHeaders); err != nil {
+			panic(err)
+		}
+	} else {
+		responseHeaders = make(map[string]string)
+	}
 	resBodySlice := C.GoBytes(resBodyCharPtr, resBodyLength)
 	myHandler := &stubHandler{
-		responseCode:  int(statusCode),
-		responseBytes: resBodySlice,
+		responseCode:    int(statusCode),
+		responseBytes:   resBodySlice,
+		responseHeaders: responseHeaders,
 	}
 
 	// Create our middleware instance with the stub handler
