@@ -87,9 +87,8 @@ static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *request)
 
   // Update the ctx with the new updated body
   ctx->request_body = updated_request_body;
-  // run the validation
-  FiretailMainConfig *main_config = ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
+  // run the validation
   void *validator_module = dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
   if (!validator_module) {
     return NGX_ERROR;
@@ -103,22 +102,16 @@ static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *request)
   }
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validating request body...");
 
-  char *schema = ngx_palloc(request->pool, main_config->FiretailAppSpec.len);
-  ngx_memcpy(schema, main_config->FiretailAppSpec.data, main_config->FiretailAppSpec.len);
-
-  struct ValidateRequestBody_return validation_result = request_body_validator(
-      schema, strlen(schema), ctx->request_body, ctx->request_body_size, request->unparsed_uri.data,
-      request->unparsed_uri.len, request->method_name.data, request->method_name.len, (char *)ctx->request_headers_json,
-      ctx->request_headers_json_size);
+  struct ValidateRequestBody_return validation_result =
+      request_body_validator(ctx->request_body, ctx->request_body_size, request->unparsed_uri.data,
+                             request->unparsed_uri.len, request->method_name.data, request->method_name.len,
+                             (char *)ctx->request_headers_json, ctx->request_headers_json_size);
 
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validation request result: %d", validation_result.r0);
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validating request body: %s", validation_result.r1);
 
   // if validation is unsuccessful, return bad request
   if (validation_result.r0 > 0) return ngx_http_firetail_request(request, NULL, chain_head, validation_result.r1);
-
-  // else continue request
-  ngx_pfree(request->pool, schema);
 
   dlclose(validator_module);
 
@@ -200,34 +193,6 @@ static void *CreateFiretailMainConfig(ngx_conf_t *configuration_object) {
   ngx_str_t firetail_url = ngx_string("");
   http_main_config->FiretailApiToken = firetail_api_token;
   http_main_config->FiretailUrl = firetail_url;
-
-  // load appspec schema
-  // schema file pointer
-  FILE *schema;
-
-  // initialize variables with an arbitary size
-  char data[SIZE];
-  char str[SIZE];
-
-  // open schema spec
-  schema = fopen("/etc/nginx/appspec.yml", "r");
-  if (schema == NULL) {
-    printf("Error! count not load schema");
-    exit(1);
-  }
-
-  // resize data
-  while (fgets(str, SIZE, schema)) {
-    // concatenate the string with line termination \0
-    // at the end
-    strcat(data, str);
-  }
-
-  ngx_str_t spec = ngx_string(data);
-
-  http_main_config->FiretailAppSpec = spec;
-
-  fclose(schema);
 
   return http_main_config;
 }

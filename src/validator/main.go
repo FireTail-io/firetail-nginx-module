@@ -23,7 +23,6 @@ var firetailResponseMiddleware func(next http.Handler) http.Handler
 
 //export ValidateRequestBody
 func ValidateRequestBody(
-	specBytes unsafe.Pointer, specLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int,
@@ -33,7 +32,7 @@ func ValidateRequestBody(
 	if firetailRequestMiddleware == nil {
 		var err error
 		firetailRequestMiddleware, err = firetail.GetMiddleware(&firetail.Options{
-			OpenapiBytes:             C.GoBytes(specBytes, specLength),
+			OpenapiSpecPath:          "/etc/nginx/appspec.yml",
 			LogsApiToken:             "",
 			LogsApiUrl:               "",
 			DebugErrs:                true,
@@ -97,7 +96,6 @@ func ValidateResponseBody(
 	tokenCharPtr unsafe.Pointer, tokenLength C.int,
 	reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
 	reqHeadersJsonCharPtr unsafe.Pointer, reqHeadersJsonLength C.int,
-	specBytes unsafe.Pointer, specLength C.int,
 	resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
 	resHeadersJsonCharPtr unsafe.Pointer, resHeadersJsonLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
@@ -107,7 +105,7 @@ func ValidateResponseBody(
 	if firetailResponseMiddleware == nil {
 		var err error
 		firetailResponseMiddleware, err = firetail.GetMiddleware(&firetail.Options{
-			OpenapiBytes:             C.GoBytes(specBytes, specLength),
+			OpenapiSpecPath:          "/etc/nginx/appspec.yml",
 			LogsApiToken:             strings.TrimSpace(string(C.GoBytes(tokenCharPtr, tokenLength))),
 			LogsApiUrl:               strings.TrimSpace(string(C.GoBytes(urlCharPtr, urlLength))),
 			DebugErrs:                true,
