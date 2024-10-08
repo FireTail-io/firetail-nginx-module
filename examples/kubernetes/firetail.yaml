@@ -1,0 +1,11 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-config
+  namespace: nginx-ingress
+data:
+  main-snippets: |
+    load_module modules/ngx_firetail_module.so;
+  http-snippets: |
+    firetail_api_token "YOUR_API_TOKEN_HERE";
+    firetail_url "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk";
