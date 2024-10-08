@@ -44,3 +44,15 @@ COPY dev/appspec.yml /etc/nginx/appspec.yml
 COPY dev/nginx.conf /etc/nginx/nginx.conf
 COPY dev/index.html /usr/share/nginx/html/
 CMD ["nginx-debug", "-g", "daemon off;"]
+
+# An image for Kubernetes ingress
+FROM nginx/nginx-ingress:3.7.0 as firetail-nginx-ingress
+USER root
+RUN mkdir -p /var/lib/apt/lists/partial && apt-get update && apt-get install -y libjson-c-dev
+COPY --from=build-golang /dist/firetail-validator.so /etc/nginx/modules/
+COPY --from=build-c /tmp/nginx-${NGINX_VERSION}/objs/ngx_firetail_module.so /etc/nginx/modules/
+USER nginx
+
+# A dev image for Kubernetes ingress
+FROM firetail-nginx-ingress AS firetail-nginx-ingress-dev
+COPY --chown=nginx:nginx examples/kubernetes/appspec.yml /etc/nginx/appspec.yml 
