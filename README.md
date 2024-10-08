@@ -43,6 +43,125 @@ Once you've configured your `nginx.conf` you will also need to provide an OpenAP
 
 
 
+## Kubernetes Example Setup
+
+An example setup for the Firetail NGINX plugin installed on an NGINX-ingress image for Kubernetes is included in the [Dockerfile](./Dockerfile) in this repository. You can build it as follows:
+
+```bash
+git clone git@github.com:FireTail-io/firetail-nginx-module.git
+cd firetail-nginx-module
+docker build -t firetail-nginx-ingress-dev . --target firetail-nginx-ingress-dev --build-arg="NGINX_VERSION=1.27.1"
+```
+
+You can then modify the [complete example](https://github.com/nginxinc/kubernetes-ingress/tree/main/examples/ingress-resources/complete-example) in the [nginxinc/kubernetes-ingress repository](https://github.com/nginxinc/kubernetes-ingress) to use the NGINX-ingress image you just built. First, clone the repository:
+
+```bash
+git clone git@github.com:nginxinc/kubernetes-ingress.git
+cd kubernetes-ingress
+```
+
+You'll then need to change the image used in `deployments/daemon-set/nginx-ingress.yaml` for the `nginx-ingress` container to `firetail-nginx-ingress-dev`.
+
+```yaml
+...
+      containers:
+        - image: firetail-nginx-ingress-dev
+          name: nginx-ingress
+...
+```
+
+Follow [the instructions linked from the example](https://docs.nginx.com/nginx-ingress-controller/installation/installing-nic/installation-with-manifests/) to setup the nginx-ingress:
+
+```bash
+kubectl apply -f deployments/common/ns-and-sa.yaml
+kubectl apply -f deployments/rbac/rbac.yaml
+kubectl apply -f examples/shared-examples/default-server-secret/default-server-secret.yaml
+kubectl apply -f deployments/common/nginx-config.yaml
+kubectl apply -f deployments/common/ingress-class.yaml
+kubectl apply -f https://raw.githubusercontent.com/nginxinc/kubernetes-ingress/v3.7.0/deploy/crds.yaml
+kubectl apply -f deployments/daemon-set/nginx-ingress.yaml
+kubectl create -f deployments/service/nodeport.yaml
+```
+
+You should then be able to see the `nginx-ingress` pod in a `Running` state:
+
+```bash
+kubectl get pods --namespace=nginx-ingress
+```
+
+```bash
+NAME                  READY   STATUS    RESTARTS   AGE
+nginx-ingress-g6tss   1/1     Running   0          7s
+```
+
+Then follow the instructions for the [complete example](https://github.com/nginxinc/kubernetes-ingress/tree/main/examples/ingress-resources/complete-example) in the [nginxinc/kubernetes-ingress repository](https://github.com/nginxinc/kubernetes-ingress):
+
+```bash
+kubectl create -f examples/ingress-resources/complete-example/cafe.yaml
+kubectl create -f examples/ingress-resources/complete-example/cafe-secret.yaml
+kubectl create -f examples/ingress-resources/complete-example/cafe-ingress.yaml
+```
+
+Find the port used by the `nginx-ingress`:
+
+```bash
+kubectl get service --namespace=nginx-ingress
+```
+
+```bash
+NAME            TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+nginx-ingress   NodePort   10.106.182.250   <none>        80:32724/TCP,443:32334/TCP   13s
+```
+
+You should then be able to `curl` the tea or coffee endpoint as follows:
+
+```bash
+export CAFE_PORT=32334
+curl --resolve cafe.example.com:$CAFE_PORT:0.0.0.0 https://cafe.example.com:$CAFE_PORT/tea --insecure
+```
+
+```
+Server address: 10.1.0.78:8080
+Server name: tea-df5655878-7blfk
+Date: 08/Oct/2024:11:06:13 +0000
+URI: /tea
+Request ID: 8292a274a2774d7e5257c53dcb8adbe6
+```
+
+In this repository you will also find [`examples/kubernetes/firetail.yml`](./examples/kubernetes/firetail.yml). Modify this file to include your own API token from the FireTail platform, and update the Firetail URL to match the region you're using then apply it.
+
+```bash
+kubectl apply -f firetail.yaml
+```
+
+This will update the `nginx.conf` file in the `nginx-ingress` container to load the FireTail module and provide your API token and FireTail URL.
+
+You should still be able to curl the `/tea` endpoint, as it is included in [the example OpenAPI specification used in the  `firetail-nginx-ingress-dev` image](./dev/appspec.yml):
+
+```bash
+curl --resolve cafe.example.com:$CAFE_PORT:0.0.0.0 https://cafe.example.com:$CAFE_PORT/tea --insecure
+```
+
+```
+Server address: 10.1.0.77:8080
+Server name: tea-df5655878-s5rbl
+Date: 08/Oct/2024:11:09:40 +0000
+URI: /tea
+Request ID: 2a094910b76a06a3a11a5820df10d56c
+```
+
+However, if you try and curl the `/coffee` endpoint your request should be blocked by the FireTail module as it is not defined in the OpenAPI specification.
+
+```bash
+curl --resolve cafe.example.com:$CAFE_PORT:0.0.0.0 https://cafe.example.com:$CAFE_PORT/coffee --insecure
+```
+
+```json
+{"code":404,"title":"the resource \"/coffee\" could not be found","detail":"a path for \"/coffee\" could not be found in your appspec"}
+```
+
+
+
 ## Local Development
 
 A [Dockerfile](./Dockerfile) is provided which will build the module, install it in [an NGINX docker image](https://hub.docker.com/_/nginx), and setup a custom [nginx.conf](./dev/nginx.conf) and [index.html](./dev/index.html). It should be as simple as:
