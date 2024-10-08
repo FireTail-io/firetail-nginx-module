@@ -128,10 +128,26 @@ URI: /tea
 Request ID: 8292a274a2774d7e5257c53dcb8adbe6
 ```
 
-In this repository you will also find [`examples/kubernetes/firetail.yml`](./examples/kubernetes/firetail.yml). Modify this file to include your own API token from the FireTail platform, and update the Firetail URL to match the region you're using then apply it.
+In order for the `nginx-ingest` to load the FireTail module we need to add a `load_module` directive to the main block, and `firetail_api_token` and `firetail_url` directives to the `nginx.conf`. This can be done using a `ConfigMap` like this:
+
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-config
+  namespace: nginx-ingress
+data:
+  main-snippets: |
+    load_module modules/ngx_firetail_module.so;
+  http-snippets: |
+    firetail_api_token "YOUR_API_TOKEN_HERE";
+    firetail_url "https://api.logging.eu-west-1.prod.firetail.app/logs/bulk";
+```
+
+Modify this file to include your own API token from the FireTail platform, and update the Firetail URL to match the region you're using. You can then save it and apply it like so:
 
 ```bash
-kubectl apply -f firetail.yaml
+kubectl apply -f my-firetail-config-map.yaml
 ```
 
 This will update the `nginx.conf` file in the `nginx-ingress` container to load the FireTail module and provide your API token and FireTail URL.
