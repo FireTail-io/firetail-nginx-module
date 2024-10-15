@@ -98,7 +98,8 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
 
     validation_result = response_body_validator(
         (char *)main_config->FiretailUrl.data, main_config->FiretailUrl.len, (char *)main_config->FiretailApiToken.data,
-        main_config->FiretailApiToken.len, (char *)ctx->request_body, (int)ctx->request_body_size,
+        main_config->FiretailApiToken.len, (char *)main_config->FiretailAllowUndefinedRoutes.data,
+        (int)main_config->FiretailAllowUndefinedRoutes.len, (char *)ctx->request_body, (int)ctx->request_body_size,
         (char *)ctx->request_headers_json, (int)ctx->request_headers_json_size, ctx->response_body,
         ctx->response_body_size, response_headers_json_string, strlen(response_headers_json_string),
         request->unparsed_uri.data, request->unparsed_uri.len, ctx->status_code, request->method_name.data,

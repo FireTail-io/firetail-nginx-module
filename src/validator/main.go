@@ -16,6 +16,7 @@ import (
 )
 import (
 	"net/http"
+	"strconv"
 )
 
 var firetailRequestMiddleware func(next http.Handler) http.Handler
@@ -23,11 +24,13 @@ var firetailResponseMiddleware func(next http.Handler) http.Handler
 
 //export ValidateRequestBody
 func ValidateRequestBody(
+	allowUndefinedRoutes unsafe.Pointer, allowUndefinedRoutesLength C.int,
 	bodyCharPtr unsafe.Pointer, bodyLength C.int,
 	pathCharPtr unsafe.Pointer, pathLength C.int,
 	methodCharPtr unsafe.Pointer, methodLength C.int,
 	headersCharPtr unsafe.Pointer, headersLength C.int,
 ) (C.int, *C.char) {
+	log.Println("✅ Validating request body...")
 	// Create the middleware if it hasn't already been done
 	if firetailRequestMiddleware == nil {
 		var err error
@@ -78,11 +81,35 @@ func ValidateRequestBody(
 	// Serve the request to the middlware
 	myMiddleware.ServeHTTP(localResponseWriter, mockRequest)
 
-	// If the body differs after being passed through the middleware then we'll just infer it doesn't match the spec
+	// Get the response body from the middleware
 	middlewareResponseBodyBytes, err := io.ReadAll(localResponseWriter.Body)
 	responseCString := C.CString(string(middlewareResponseBodyBytes))
+	if err != nil {
+		return 1, responseCString // return 1 is error by convention
+	}
 
-	if err != nil || string(middlewareResponseBodyBytes) != string(placeholderResponse) {
+	// If the body differs after being passed through the middleware then we'll just infer it doesn't match the spec
+	if string(middlewareResponseBodyBytes) != string(placeholderResponse) {
+		// If allowing undefined routes, then we need to check if the response is a 404 from the middleware. If it is,
+		// we return success.
+		allowUndefinedRoutesBool, err := strconv.ParseBool(string(C.GoBytes(allowUndefinedRoutes, allowUndefinedRoutesLength)))
+		if err != nil {
+			return 1, responseCString // return 1 is error by convention
+		}
+		if allowUndefinedRoutesBool {
+			response_json := map[string]interface{}{}
+			if err := json.Unmarshal(middlewareResponseBodyBytes, &response_json); err != nil {
+				return 1, responseCString // return 1 is error by convention
+			}
+			if code, ok := response_json["code"]; ok {
+				if code_float, ok := code.(float64); ok {
+					if code_float == 404 {
+						return 0, responseCString // return 0 is success by convention
+					}
+				}
+			}
+
+		}
 		return 1, responseCString // return 1 is error by convention
 	}
 
@@ -94,6 +121,7 @@ func ValidateResponseBody(
 	urlCharPtr unsafe.Pointer,
 	urlLength C.int,
 	tokenCharPtr unsafe.Pointer, tokenLength C.int,
+	allowUndefinedRoutes unsafe.Pointer, allowUndefinedRoutesLength C.int,
 	reqBodyCharPtr unsafe.Pointer, reqBodyLength C.int,
 	reqHeadersJsonCharPtr unsafe.Pointer, reqHeadersJsonLength C.int,
 	resBodyCharPtr unsafe.Pointer, resBodyLength C.int,
@@ -170,12 +198,35 @@ func ValidateResponseBody(
 	// match the spec
 	middlewareResponseBodyBytes, err := io.ReadAll(localResponseWriter.Body)
 	responseCString := C.CString(string(middlewareResponseBodyBytes))
-
-	if err != nil || localResponseWriter.Code != int(statusCode) || string(middlewareResponseBodyBytes) != string(resBodySlice) {
+	if err != nil {
 		return 1, responseCString // return 1 is error by convention
 	}
 
-	return 0, responseCString // return 0 is success by convention
+	// If the body differs after being passed through the middleware then we'll just infer it doesn't match the spec
+	if string(middlewareResponseBodyBytes) != string(resBodySlice) || localResponseWriter.Code != int(statusCode) {
+		// If allowing undefined routes, then we need to check if the response is a 404 from the middleware. If it is,
+		// we return success.
+		allowUndefinedRoutesBool, err := strconv.ParseBool(string(C.GoBytes(allowUndefinedRoutes, allowUndefinedRoutesLength)))
+		if err != nil {
+			return 1, responseCString // return 1 is error by convention
+		}
+		if allowUndefinedRoutesBool {
+			response_json := map[string]interface{}{}
+			if err := json.Unmarshal(middlewareResponseBodyBytes, &response_json); err != nil {
+				return 1, responseCString // return 1 is error by convention
+			}
+			if code, ok := response_json["code"]; ok {
+				if code_float, ok := code.(float64); ok {
+					if code_float == 404 {
+						return 0, C.CString(string(resBodySlice)) // return 0 is success by convention
+					}
+				}
+			}
+		}
+		return 1, responseCString // return 1 is error by convention
+	}
+
+	return 0, C.CString(string(resBodySlice)) // return 0 is success by convention
 }
 
 func main() {}
