@@ -88,6 +88,9 @@ static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *request)
   // Update the ctx with the new updated body
   ctx->request_body = updated_request_body;
 
+  // Get the main config so we can check if we have 404s disabled from the middleware
+  FiretailMainConfig *main_config = ngx_http_get_module_main_conf(request, ngx_firetail_module);
+
   // run the validation
   void *validator_module = dlopen("/etc/nginx/modules/firetail-validator.so", RTLD_LAZY);
   if (!validator_module) {
@@ -102,10 +105,10 @@ static ngx_int_t ngx_http_firetail_handler_internal(ngx_http_request_t *request)
   }
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validating request body...");
 
-  struct ValidateRequestBody_return validation_result =
-      request_body_validator(ctx->request_body, ctx->request_body_size, request->unparsed_uri.data,
-                             request->unparsed_uri.len, request->method_name.data, request->method_name.len,
-                             (char *)ctx->request_headers_json, ctx->request_headers_json_size);
+  struct ValidateRequestBody_return validation_result = request_body_validator(
+      main_config->FiretailAllowUndefinedRoutes.data, main_config->FiretailAllowUndefinedRoutes.len, ctx->request_body,
+      ctx->request_body_size, request->unparsed_uri.data, request->unparsed_uri.len, request->method_name.data,
+      request->method_name.len, (char *)ctx->request_headers_json, ctx->request_headers_json_size);
 
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validation request result: %d", validation_result.r0);
   ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validating request body: %s", validation_result.r1);
@@ -210,8 +213,8 @@ ngx_http_module_t kFiretailModuleContext = {
     NULL                       // merge location configuration
 };
 
-char *EnableFiretailDirectiveInit(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
-                                  void *http_main_config) {
+char *FiretailApiTokenDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
+                                        void *http_main_config) {
   // TODO: validate the args given to the directive
 
   // Find the firetail_api_key_field given the config pointer & offset in cmd
@@ -225,8 +228,8 @@ char *EnableFiretailDirectiveInit(ngx_conf_t *configuration_object, ngx_command_
   return NGX_CONF_OK;
 }
 
-char *EnableFiretailUrlInit(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
-                            void *http_main_config) {
+char *FiretailUrlDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
+                                   void *http_main_config) {
   // TODO: validate the args given to the directive
 
   // Find the firetail_api_key_field given the config pointer & offset in cmd
@@ -240,16 +243,43 @@ char *EnableFiretailUrlInit(ngx_conf_t *configuration_object, ngx_command_t *com
   return NGX_CONF_OK;
 }
 
-ngx_command_t kFiretailCommands[3] = {
+char *FiretailAllowUndefinedRoutesDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
+                                                    void *http_main_config) {
+  // Find the firetail_api_key_field given the config pointer & offset in cmd
+  char *firetail_config = http_main_config;
+  ngx_str_t *firetail_allow_undefined_routes_field = (ngx_str_t *)(firetail_config + command_definition->offset);
+
+  // Get the string value from the configuraion object
+  ngx_str_t *value = configuration_object->args->elts;
+  *firetail_allow_undefined_routes_field = value[1];
+
+  return NGX_CONF_OK;
+}
+
+ngx_command_t kFiretailCommands[4] = {
     {// Name of the directive
      ngx_string("firetail_api_token"),
      // Valid in the main config and takes one arg
      NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
      // A callback function to be called when the directive is found in the
      // configuration
-     EnableFiretailDirectiveInit, NGX_HTTP_MAIN_CONF_OFFSET, offsetof(FiretailMainConfig, FiretailApiToken), NULL},
-    {ngx_string("firetail_url"), NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1, EnableFiretailUrlInit, NGX_HTTP_MAIN_CONF_OFFSET,
-     offsetof(FiretailMainConfig, FiretailUrl), NULL},
+     FiretailApiTokenDirectiveCallback, NGX_HTTP_MAIN_CONF_OFFSET, offsetof(FiretailMainConfig, FiretailApiToken),
+     NULL},
+    {// Name of the directive
+     ngx_string("firetail_url"),
+     // Valid in the main config and takes one arg
+     NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+     // A callback function to be called when the directive is found in the
+     // configuration
+     FiretailUrlDirectiveCallback, NGX_HTTP_MAIN_CONF_OFFSET, offsetof(FiretailMainConfig, FiretailUrl), NULL},
+    {// Name of the directive
+     ngx_string("firetail_allow_undefined_routes"),
+     // Valid in the main config and takes one arg
+     NGX_HTTP_MAIN_CONF | NGX_CONF_TAKE1,
+     // A callback function to be called when the directive is found in the
+     // configuration
+     FiretailAllowUndefinedRoutesDirectiveCallback, NGX_HTTP_MAIN_CONF_OFFSET,
+     offsetof(FiretailMainConfig, FiretailAllowUndefinedRoutes), NULL},
     ngx_null_command};
 
 ngx_module_t ngx_firetail_module = {NGX_MODULE_V1,

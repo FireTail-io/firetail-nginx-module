@@ -235,7 +235,7 @@ To demonstrate request validation a `POST /proxy/profile/{username}/comment` ope
 Making a curl request to `POST /profile/alice/comment` should yield the following result, which validates successfully against the provided appspec:
 
 ```bash
-curl localhost:8080/proxy/profile/alice/comment -X POST -H "Content-Type: application/json" -d '{"comment":"Hello world!"}
+curl localhost:8080/proxy/profile/alice/comment -X POST -H "Content-Type: application/json" -d '{"comment":"Hello world!"}'
 ```
 
 ```json
