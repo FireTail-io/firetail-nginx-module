@@ -45,6 +45,13 @@ COPY dev/nginx.conf /etc/nginx/nginx.conf
 COPY dev/index.html /usr/share/nginx/html/
 CMD ["nginx-debug", "-g", "daemon off;"]
 
+FROM firetail-nginx as firetail-nginx-dev-php
+RUN apt-get install php7.4 php7.4-fpm -y && mkdir /var/www/html -p && chmod -R 777 /var/www/html && echo "<?php phpinfo(); ?>" >> /var/www/html/info.php
+COPY dev/appspec.yml /etc/nginx/appspec.yml
+COPY examples/php/nginx.conf /etc/nginx/nginx.conf
+COPY examples/php/hello.php /usr/share/nginx/html/hello.php
+CMD ["nginx-debug", "-g", "daemon off;"]
+
 # An image for Kubernetes ingress
 FROM nginx/nginx-ingress:3.7.0 as firetail-nginx-ingress
 USER root
