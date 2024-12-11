@@ -49,7 +49,10 @@ FROM firetail-nginx as firetail-nginx-dev-php
 RUN apt-get install php7.4 php7.4-fpm -y && mkdir /var/www/html -p && chmod -R 777 /var/www/html && echo "<?php phpinfo(); ?>" >> /var/www/html/info.php
 COPY dev/appspec.yml /etc/nginx/appspec.yml
 COPY examples/php/nginx.conf /etc/nginx/nginx.conf
-COPY examples/php/hello.php /usr/share/nginx/html/hello.php
+COPY examples/php/hello.php /var/www/html/hello.php
+COPY examples/php/hello.css /var/www/html/hello.css
+COPY examples/php/www.conf /etc/php/7.4/fpm/pool.d/www.conf
+
 CMD ["nginx-debug", "-g", "daemon off;"]
 
 # An image for Kubernetes ingress
