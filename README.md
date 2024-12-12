@@ -329,3 +329,18 @@ CGO_ENABLED=1 go build -buildmode c-shared -o firetail-validator.so .
 This should yield a file called `firetail-validator.so`.
 
 You will need to take copies of the `ngx_firetail_module.so` and `firetail-validator.so` binaries and place them in `/etc/nginx/modules/`.
+
+## php example
+
+
+BUILD & RUN
+```
+docker build -t firetail-nginx-dev-php . --target firetail-nginx-dev-php --build-arg="NGINX_VERSION=1.25.0"
+docker run -it -p 8080:80 firetail-nginx-dev-php:latest /bin/bash
+```
+
+INSIDE DOCKER
+```
+/etc/init.d/php7.4-fpm start
+/etc/init.d/nginx start
+```
