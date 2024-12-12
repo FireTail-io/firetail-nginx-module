@@ -1,5 +1,7 @@
 github.com/FireTail-io/firetail-go-lib v0.2.1 h1:Jf3C1mAtCHAHHqSeuaMx6sSRmUS7OjgY4B2nY8XfibU=
 github.com/FireTail-io/firetail-go-lib v0.2.1/go.mod h1:PH4aGBwry6z/3vzXEdcMaxK22E3xqPq2+w2y3FzETj4=
+github.com/FireTail-io/firetail-go-lib v0.2.3 h1:MDWnEpa/cyqc5sfhyHLjSXz8C+510nmHvpVxiOXnFAg=
+github.com/FireTail-io/firetail-go-lib v0.2.3/go.mod h1:PH4aGBwry6z/3vzXEdcMaxK22E3xqPq2+w2y3FzETj4=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
