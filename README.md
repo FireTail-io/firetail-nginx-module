@@ -29,13 +29,15 @@ To setup the Firetail NGINX Module, you will need to modify your `nginx.conf` to
 load_module modules/ngx_firetail_module.so;
 ```
 
-You can then use the `firetail_api_token` directive to provide your Firetail logging API token inside a http block like so:
+You can then configure it using the following directives, which all belong in the `http` block of your NGINX configuration:
 
-```
-  firetail_api_token "YOUR-API-TOKEN";
-```
+| Directive                         | Description                                                  | Example                                                      |
+| --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `firetail_api_token`              | Your API token from the FireTail platform                    | `PS-02-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `firetail_url`                    | The URL of the API endpoint the FireTail NGINX module will send logs to. | `https://api.logging.eu-west-1.prod.firetail.app/logs/bulk`  |
+| `firetail_allow_undefined_routes` | If set to `1`, `t`, `T`, `TRUE`, `true`, or `True`, requests to routes not defined in your OpenAPI specification will not be blocked. | `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, `False` |
 
-See [dev/nginx.conf](./dev/nginx.conf) for an example of this in action.
+See [dev/nginx.conf](./dev/nginx.conf) for an example of these in use.
 
 You should use a module such as the [ngx_http_lua_module](https://github.com/openresty/lua-nginx-module) to avoid placing plaintext credentials in your `nginx.conf`, and instead make use of [system environment variables](https://github.com/openresty/lua-nginx-module#system-environment-variable-support).
 

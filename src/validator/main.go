@@ -33,7 +33,13 @@ func ValidateRequestBody(
 	log.Println("✅ Validating request body...")
 	// Create the middleware if it hasn't already been done
 	if firetailRequestMiddleware == nil {
-		var err error
+		allowUndefinedRoutesBool, err := strconv.ParseBool(
+			string(C.GoBytes(allowUndefinedRoutes, allowUndefinedRoutesLength)),
+		)
+		if err != nil {
+			log.Println("Failed to initialise Firetail middleware, err:", err.Error())
+		}
+
 		firetailRequestMiddleware, err = firetail.GetMiddleware(&firetail.Options{
 			OpenapiSpecPath:          "/etc/nginx/appspec.yml",
 			LogsApiToken:             "",
@@ -41,6 +47,7 @@ func ValidateRequestBody(
 			DebugErrs:                true,
 			EnableRequestValidation:  true,
 			EnableResponseValidation: false,
+			AllowUndefinedRoutes:     allowUndefinedRoutesBool,
 		})
 		if err != nil {
 			log.Println("Failed to initialise Firetail middleware, err:", err.Error())
@@ -90,26 +97,6 @@ func ValidateRequestBody(
 
 	// If the body differs after being passed through the middleware then we'll just infer it doesn't match the spec
 	if string(middlewareResponseBodyBytes) != string(placeholderResponse) {
-		// If allowing undefined routes, then we need to check if the response is a 404 from the middleware. If it is,
-		// we return success.
-		allowUndefinedRoutesBool, err := strconv.ParseBool(string(C.GoBytes(allowUndefinedRoutes, allowUndefinedRoutesLength)))
-		if err != nil {
-			return 1, responseCString // return 1 is error by convention
-		}
-		if allowUndefinedRoutesBool {
-			response_json := map[string]interface{}{}
-			if err := json.Unmarshal(middlewareResponseBodyBytes, &response_json); err != nil {
-				return 1, responseCString // return 1 is error by convention
-			}
-			if code, ok := response_json["code"]; ok {
-				if code_float, ok := code.(float64); ok {
-					if code_float == 404 {
-						return 0, responseCString // return 0 is success by convention
-					}
-				}
-			}
-
-		}
 		return 1, responseCString // return 1 is error by convention
 	}
 
@@ -131,7 +118,13 @@ func ValidateResponseBody(
 	methodCharPtr unsafe.Pointer, methodLength C.int,
 ) (C.int, *C.char) {
 	if firetailResponseMiddleware == nil {
-		var err error
+		allowUndefinedRoutesBool, err := strconv.ParseBool(
+			string(C.GoBytes(allowUndefinedRoutes, allowUndefinedRoutesLength)),
+		)
+		if err != nil {
+			log.Println("Failed to initialise Firetail middleware, err:", err.Error())
+		}
+
 		firetailResponseMiddleware, err = firetail.GetMiddleware(&firetail.Options{
 			OpenapiSpecPath:          "/etc/nginx/appspec.yml",
 			LogsApiToken:             strings.TrimSpace(string(C.GoBytes(tokenCharPtr, tokenLength))),
@@ -139,6 +132,7 @@ func ValidateResponseBody(
 			DebugErrs:                true,
 			EnableRequestValidation:  false,
 			EnableResponseValidation: true,
+			AllowUndefinedRoutes:     allowUndefinedRoutesBool,
 		})
 		if err != nil {
 			log.Println("Failed to initialise Firetail middleware, err:", err.Error())
@@ -204,25 +198,6 @@ func ValidateResponseBody(
 
 	// If the body differs after being passed through the middleware then we'll just infer it doesn't match the spec
 	if string(middlewareResponseBodyBytes) != string(resBodySlice) || localResponseWriter.Code != int(statusCode) {
-		// If allowing undefined routes, then we need to check if the response is a 404 from the middleware. If it is,
-		// we return success.
-		allowUndefinedRoutesBool, err := strconv.ParseBool(string(C.GoBytes(allowUndefinedRoutes, allowUndefinedRoutesLength)))
-		if err != nil {
-			return 1, responseCString // return 1 is error by convention
-		}
-		if allowUndefinedRoutesBool {
-			response_json := map[string]interface{}{}
-			if err := json.Unmarshal(middlewareResponseBodyBytes, &response_json); err != nil {
-				return 1, responseCString // return 1 is error by convention
-			}
-			if code, ok := response_json["code"]; ok {
-				if code_float, ok := code.(float64); ok {
-					if code_float == 404 {
-						return 0, C.CString(string(resBodySlice)) // return 0 is success by convention
-					}
-				}
-			}
-		}
 		return 1, responseCString // return 1 is error by convention
 	}
 
