@@ -29,13 +29,14 @@ To setup the Firetail NGINX Module, you will need to modify your `nginx.conf` to
 load_module modules/ngx_firetail_module.so;
 ```
 
-You can then configure it using the following directives, which all belong in the `http` block of your NGINX configuration:
+You can then configure it using the following directives:
 
-| Directive                         | Description                                                  | Example                                                      |
-| --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `firetail_api_token`              | Your API token from the FireTail platform                    | `PS-02-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `firetail_url`                    | The URL of the API endpoint the FireTail NGINX module will send logs to. | `https://api.logging.eu-west-1.prod.firetail.app/logs/bulk`  |
-| `firetail_allow_undefined_routes` | If set to `1`, `t`, `T`, `TRUE`, `true`, or `True`, requests to routes not defined in your OpenAPI specification will not be blocked. | `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, `False` |
+| Directive                         | Valid in   | Description                                                  | Example Arguments                                            |
+| --------------------------------- | ---------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| `firetail_api_token`              | `http`     | Your API token from the FireTail platform                    | `PS-02-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `firetail_url`                    | `http`     | The URL of the API endpoint the FireTail NGINX module will send logs to. | `https://api.logging.eu-west-1.prod.firetail.app/logs/bulk`  |
+| `firetail_enable`                 | `location` | Use this in every location block for which you want FireTail to be enabled. | This directive takes no arguments.                           |
+| `firetail_allow_undefined_routes` | `http`     | If set to `1`, `t`, `T`, `TRUE`, `true`, or `True`, requests to routes not defined in your OpenAPI specification will not be blocked. | `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, `False` |
 
 See [dev/nginx.conf](./dev/nginx.conf) for an example of these in use.
 
