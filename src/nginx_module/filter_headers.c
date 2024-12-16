@@ -1,9 +1,16 @@
 #include <ngx_core.h>
 #include "filter_context.h"
 #include "filter_headers.h"
+#include "firetail_config.h"
 #include "firetail_module.h"
 
 ngx_int_t FiretailHeaderFilter(ngx_http_request_t *request) {
+  // Check if FireTail is enabled for this location; if not, skip this filter
+  FiretailConfig *location_config = ngx_http_get_module_loc_conf(request, ngx_firetail_module);
+  if (location_config->FiretailEnabled == 0) {
+    return kNextHeaderFilter(request);
+  }
+
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
   if (ctx == NULL) {
     return NGX_ERROR;

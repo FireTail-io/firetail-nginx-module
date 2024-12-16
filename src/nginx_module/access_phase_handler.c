@@ -23,6 +23,12 @@ typedef struct {
 } ngx_http_firetail_ctx_t;
 
 ngx_int_t FiretailAccessPhaseHandler(ngx_http_request_t *r) {
+  // Check if FireTail is enabled for this location; if not, skip this handler
+  FiretailConfig *location_config = ngx_http_get_module_loc_conf(r, ngx_firetail_module);
+  if (location_config->FiretailEnabled == 0) {
+    return NGX_DECLINED;
+  }
+
   ngx_int_t rc;
   ngx_http_firetail_ctx_t *ctx;
 

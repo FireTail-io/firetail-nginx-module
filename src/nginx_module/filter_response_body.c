@@ -25,6 +25,12 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
   // You can set the logging level to debug here
   // request->connection->log->log_level = NGX_LOG_DEBUG;
 
+  // Check if FireTail is enabled for this location; if not, skip this filter
+  FiretailConfig *location_config = ngx_http_get_module_loc_conf(request, ngx_firetail_module);
+  if (location_config->FiretailEnabled == 0) {
+    return kNextResponseBodyFilter(request, chain_head);
+  }
+
   // Get our context so we can store the response body data
   FiretailFilterContext *ctx = GetFiretailFilterContext(request);
   if (ctx == NULL || ctx->done) {
