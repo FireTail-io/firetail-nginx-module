@@ -2,16 +2,20 @@ ngx_addon_name=ngx_firetail_module
 
 FIRETAIL_SRCS="                                                             \
         $ngx_addon_dir/firetail_module.c                                    \
+        $ngx_addon_dir/firetail_context.c                                   \
+        $ngx_addon_dir/firetail_directives.c                                \
         $ngx_addon_dir/filter_context.c                                     \
-        $ngx_addon_dir/filter_firetail_send.c                               \
+        $ngx_addon_dir/access_phase_handler.c                               \
         $ngx_addon_dir/filter_response_body.c                               \
         $ngx_addon_dir/filter_headers.c                                     \
         "
 
 FIRETAIL_DEPS="                                                             \
         $ngx_addon_dir/firetail_module.h                                    \
+        $ngx_addon_dir/firetail_context.h                                   \
+        $ngx_addon_dir/firetail_directives.h                                \
         $ngx_addon_dir/filter_context.h                                     \
-        $ngx_addon_dir/filter_firetail_send.h                               \
+        $ngx_addon_dir/access_phase_handler.h                               \
         $ngx_addon_dir/filter_response_body.h                               \
         $ngx_addon_dir/filter_headers.h                                     \
         "

@@ -30,7 +30,6 @@ func ValidateRequestBody(
 	methodCharPtr unsafe.Pointer, methodLength C.int,
 	headersCharPtr unsafe.Pointer, headersLength C.int,
 ) (C.int, *C.char) {
-	log.Println("✅ Validating request body...")
 	// Create the middleware if it hasn't already been done
 	if firetailRequestMiddleware == nil {
 		allowUndefinedRoutesBool, err := strconv.ParseBool(
