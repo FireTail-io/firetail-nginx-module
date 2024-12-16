@@ -20,8 +20,6 @@ static ngx_int_t FiretailResponseBodyFilterFinalise(ngx_http_request_t *request,
 static void FiretailResponseBodyFilterFinaliseCleanup(void *data);
 
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *chain_head) {
-  struct ValidateResponseBody_return validation_result;
-
   // You can set the logging level to debug here
   // request->connection->log->log_level = NGX_LOG_DEBUG;
 
@@ -40,7 +38,6 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
   // Determine the length of the response body chain we've been given, and if
   // the chain contains the last link
   long new_response_body_parts_size = 0;
-
   for (ngx_chain_t *current_chain_link = chain_head; current_chain_link != NULL;
        current_chain_link = current_chain_link->next) {
     new_response_body_parts_size += current_chain_link->buf->last - current_chain_link->buf->pos;
@@ -75,14 +72,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
     ngx_pfree(request->pool, updated_response_body);
   }
 
-  FiretailConfig *main_config = ngx_http_get_module_main_conf(request, ngx_firetail_module);
-
-  // If it does contain the last buffer, we can validate it with our go lib.
-  // NOTE: I'm currently loading this dynamic module in every time we need to
-  // call it. If I do it once at startup, it would just hang when I call the
-  // response body validator _sometimes_. Couldn't figure out why. Creating the
-  // middleware on the go side of things every time will be very inefficient.
-
+  struct ValidateResponseBody_return validation_result;
   if (ctx->bypass_response == 0) {
     // Get the response header values
     json_object *response_headers_root = json_object_new_object();
@@ -115,6 +105,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
     }
     ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Validating response body...");
 
+    FiretailConfig *main_config = ngx_http_get_module_main_conf(request, ngx_firetail_module);
     validation_result = response_body_validator(
         (char *)main_config->FiretailUrl.data, main_config->FiretailUrl.len, (char *)main_config->FiretailApiToken.data,
         main_config->FiretailApiToken.len, (char *)main_config->FiretailAllowUndefinedRoutes.data,
