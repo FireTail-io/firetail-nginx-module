@@ -56,7 +56,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
     ngx_pfree(request->pool, updated_response_body);
   }
 
-  FiretailMainConfig *main_config = ngx_http_get_module_main_conf(request, ngx_firetail_module);
+  FiretailConfig *main_config = ngx_http_get_module_main_conf(request, ngx_firetail_module);
 
   // If it does contain the last buffer, we can validate it with our go lib.
   // NOTE: I'm currently loading this dynamic module in every time we need to
