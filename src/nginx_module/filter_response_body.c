@@ -4,7 +4,19 @@
 #include "filter_context.h"
 #include "filter_response_body.h"
 #include "firetail_module.h"
-#include "filter_firetail_send.h"
+
+struct ValidateResponseBody_return {
+  int r0;
+  char *r1;
+};
+typedef struct ValidateResponseBody_return (*ValidateResponseBody)(char *, int, char *, int, char *, int, char *, int,
+                                                                   char *, int, void *, int, char *, int, void *, int,
+                                                                   int, void *, int);
+
+static ngx_buf_t *FiretailResponseBodyFilterBuffer(ngx_http_request_t *request, u_char *response);
+static ngx_int_t FiretailResponseBodyFilterFinalise(ngx_http_request_t *request, FiretailFilterContext *ctx,
+                                                    ngx_buf_t *b, char *error);
+static void FiretailResponseBodyFilterFinaliseCleanup(void *data);
 
 ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *chain_head) {
   struct ValidateResponseBody_return validation_result;
@@ -109,7 +121,7 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
 
     // if validation result is not successful
     if (validation_result.r0 > 0) {
-      return ngx_http_firetail_send(request, ctx, NULL, validation_result.r1);
+      return FiretailResponseBodyFilterFinalise(request, ctx, NULL, validation_result.r1);
     }
 
     dlclose(validator_module);
@@ -118,7 +130,106 @@ ngx_int_t FiretailResponseBodyFilter(ngx_http_request_t *request, ngx_chain_t *c
   }
 
   if (ctx->bypass_response == 1)
-    return ngx_http_firetail_send(request, ctx, ngx_http_filter_buffer(request, (u_char *)ctx->request_result), NULL);
+    return FiretailResponseBodyFilterFinalise(
+        request, ctx, FiretailResponseBodyFilterBuffer(request, (u_char *)ctx->request_result), NULL);
 
-  return ngx_http_firetail_send(request, ctx, ngx_http_filter_buffer(request, (u_char *)validation_result.r1), NULL);
+  return FiretailResponseBodyFilterFinalise(
+      request, ctx, FiretailResponseBodyFilterBuffer(request, (u_char *)validation_result.r1), NULL);
 }
+
+static ngx_buf_t *FiretailResponseBodyFilterBuffer(ngx_http_request_t *request, u_char *response) {
+  ngx_buf_t *buffer = ngx_calloc_buf(request->pool);
+  if (buffer == NULL) {
+    return NULL;
+  }
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Buffer is successful", NULL);
+  buffer->pos = response;
+  buffer->last = response + strlen((char *)response);
+  buffer->memory = 1;
+  buffer->last_buf = 1;
+  return buffer;
+}
+
+/* reason this exists is that we want to send our module response to the user
+ only when we have a response from the server to validate the request Info here:
+ https://mailman.nginx.org/pipermail/nginx-devel/2023-September/ARTW6X573LPVCRQJNZEWT33W4PFEKIPR.html
+*/
+static ngx_int_t FiretailResponseBodyFilterFinalise(ngx_http_request_t *request, FiretailFilterContext *ctx,
+                                                    ngx_buf_t *b, char *error) {
+  ngx_int_t rc;
+  ngx_chain_t out;
+  ngx_pool_cleanup_t *cln;
+
+  struct json_object *jobj;
+  char *code;
+
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Start of firetail send", NULL);
+
+  ctx->done = 1;
+
+  if (b == NULL) {
+    // if there is an spec validation error by sending out
+    // the error response gotten from the middleware
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Buffer is null", NULL);
+
+    // response parse the middleware json response
+    jobj = json_tokener_parse(error);
+    // Get the string value in "code" json key
+    code = (char *)json_object_get_string(json_object_object_get(jobj, "code"));
+
+    // Set the middleware status code after converting string status code to
+    // integer
+    request->headers_out.status = ngx_atoi((u_char *)code, strlen(code));
+
+    // request->headers_out.status = NGX_HTTP_BAD_REQUEST;
+    ngx_str_t content_type = ngx_string("application/json");
+    request->headers_out.content_type = content_type;
+
+    // allocate buffer in pool
+    b = ngx_calloc_buf(request->pool);
+    // set the error as unsigned char
+    u_char *msg = (u_char *)error;
+    b->pos = msg;
+    b->last = msg + strlen((char *)msg);
+    b->memory = 1;
+
+    b->last_buf = 1;
+  }
+
+  cln = ngx_pool_cleanup_add(request->pool, 0);
+  if (cln == NULL) {
+    ngx_free(b->pos);
+    return ngx_http_filter_finalize_request(request, &ngx_firetail_module, NGX_HTTP_INTERNAL_SERVER_ERROR);
+  }
+
+  if (request == request->main) {
+    request->headers_out.content_length_n = b->last - b->pos;
+
+    if (request->headers_out.content_length) {
+      request->headers_out.content_length->hash = 0;
+      request->headers_out.content_length = NULL;
+    }
+  }
+
+  request->keepalive = 0;
+
+  rc = kNextHeaderFilter(request);
+
+  if (rc == NGX_ERROR || rc > NGX_OK || request->header_only) {
+    ngx_free(b->pos);
+    ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "SENDING HEADERS...", NULL);
+    return rc;
+  }
+
+  ngx_log_debug(NGX_LOG_DEBUG, request->connection->log, 0, "Sending next RESPONSE body", NULL);
+
+  cln->handler = FiretailResponseBodyFilterFinaliseCleanup;
+  cln->data = b->pos;
+
+  out.buf = b;
+  out.next = NULL;
+
+  return kNextResponseBodyFilter(request, &out);
+}
+
+static void FiretailResponseBodyFilterFinaliseCleanup(void *data) { ngx_free(data); }
