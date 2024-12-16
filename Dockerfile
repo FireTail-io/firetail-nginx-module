@@ -51,9 +51,11 @@ COPY dev/appspec.yml /etc/nginx/appspec.yml
 COPY examples/php/nginx.conf /etc/nginx/nginx.conf
 COPY examples/php/hello.php /var/www/html/hello.php
 COPY examples/php/hello.css /var/www/html/hello.css
-COPY examples/php/www.conf /etc/php/7.4/fpm/pool.d/www.conf
-
-CMD ["nginx-debug", "-g", "daemon off;"]
+COPY examples/php/http.js /etc/nginx/http.js
+COPY examples/php/startup.sh /startup.sh
+RUN chmod +x /startup.sh
+RUN mkdir -p /data/nginx/cache
+ENTRYPOINT ["/bin/bash", "/startup.sh"]
 
 # An image for Kubernetes ingress
 FROM nginx/nginx-ingress:3.7.0 as firetail-nginx-ingress
