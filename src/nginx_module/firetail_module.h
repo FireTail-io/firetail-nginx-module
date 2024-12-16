@@ -3,13 +3,6 @@
 
 #include <ngx_http.h>
 
-typedef struct {
-  ngx_str_t FiretailApiToken;  // TODO: this should probably be a *ngx_str_t
-  ngx_str_t FiretailUrl;
-  ngx_str_t FiretailAllowUndefinedRoutes;
-  ngx_int_t FiretailEnabled;
-} FiretailConfig;
-
 // The header and body filters of the filter that was added just before ours.
 // These make up part of a singly linked list of header and body filters.
 extern ngx_http_output_header_filter_pt kNextHeaderFilter;
