@@ -35,6 +35,7 @@ You can then configure it using the following directives:
 | --------------------------------- | ---------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | `firetail_api_token`              | `http`     | Your API token from the FireTail platform                    | `PS-02-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx-xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
 | `firetail_url`                    | `http`     | The URL of the API endpoint the FireTail NGINX module will send logs to. | `https://api.logging.eu-west-1.prod.firetail.app/logs/bulk`  |
+| `firetail_disable`                | `http`     | Disables Firetail by default. Firetail will only be enabled for locations in which you use the `firetail_enable` directive. | This directive takes no arguments.                           |
 | `firetail_enable`                 | `location` | Use this in every location block for which you want FireTail to be enabled. | This directive takes no arguments.                           |
 | `firetail_allow_undefined_routes` | `http`     | If set to `1`, `t`, `T`, `TRUE`, `true`, or `True`, requests to routes not defined in your OpenAPI specification will not be blocked. | `1`, `t`, `T`, `TRUE`, `true`, `True`, `0`, `f`, `F`, `FALSE`, `false`, `False` |
 
