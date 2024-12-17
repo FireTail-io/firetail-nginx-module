@@ -1,6 +1,6 @@
 #include <ngx_core.h>
+#include <ngx_http.h>
 #include "filter_context.h"
-#include "filter_headers.h"
 #include "firetail_config.h"
 #include "firetail_module.h"
 

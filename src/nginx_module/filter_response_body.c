@@ -1,8 +1,7 @@
 #include <ngx_core.h>
-#include <curl/curl.h>
+#include <ngx_http.h>
 #include <json-c/json.h>
 #include "filter_context.h"
-#include "filter_response_body.h"
 #include "firetail_config.h"
 #include "firetail_module.h"
 

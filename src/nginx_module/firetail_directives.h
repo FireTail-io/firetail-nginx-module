@@ -1,5 +1,4 @@
 #include <ngx_core.h>
-#include <ngx_http.h>
 #include "firetail_config.h"
 
 char *FiretailApiTokenDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
@@ -10,8 +9,10 @@ char *FiretailAllowUndefinedRoutesDirectiveCallback(ngx_conf_t *configuration_ob
                                                     void *http_main_config);
 char *FiretailEnableDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
                                       void *http_main_config);
+char *FiretailDisableDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
+                                       void *http_main_config);
 
-ngx_command_t kFiretailCommands[5] = {
+ngx_command_t kFiretailCommands[6] = {
     {// Name of the directive
      ngx_string("firetail_api_token"),
      // Valid in the main config and takes one arg
@@ -41,4 +42,11 @@ ngx_command_t kFiretailCommands[5] = {
      // A callback function to be called when the directive is found in the
      // configuration
      FiretailEnableDirectiveCallback, NGX_HTTP_LOC_CONF_OFFSET, offsetof(FiretailConfig, FiretailEnabled), NULL},
+    {// Name of the directive
+     ngx_string("firetail_disable"),
+     // Valid in location configs and takes no args
+     NGX_HTTP_MAIN_CONF | NGX_CONF_NOARGS,
+     // A callback function to be called when the directive is found in the
+     // configuration
+     FiretailDisableDirectiveCallback, NGX_HTTP_LOC_CONF_OFFSET, offsetof(FiretailConfig, FiretailEnabled), NULL},
     ngx_null_command};

@@ -1,3 +1,4 @@
+#include <ngx_core.h>
 #include <ngx_http.h>
 
 char *FiretailApiTokenDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
@@ -49,6 +50,16 @@ char *FiretailEnableDirectiveCallback(ngx_conf_t *configuration_object, ngx_comm
   char *firetail_config = http_main_config;
   ngx_int_t *firetail_enabled_field = (ngx_int_t *)(firetail_config + command_definition->offset);
   *firetail_enabled_field = 1;
+
+  return NGX_CONF_OK;
+}
+
+char *FiretailDisableDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,
+                                       void *http_main_config) {
+  // Find the firetail_enable_field given the config pointer & offset in cmd
+  char *firetail_config = http_main_config;
+  ngx_int_t *firetail_enabled_field = (ngx_int_t *)(firetail_config + command_definition->offset);
+  *firetail_enabled_field = 0;
 
   return NGX_CONF_OK;
 }

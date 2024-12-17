@@ -1,5 +1,4 @@
 #include <ngx_config.h>
-#include <ngx_core.h>
 #include <ngx_http.h>
 #include "access_phase_handler.h"
 #include "filter_headers.h"
@@ -41,7 +40,7 @@ void *CreateFiretailConfig(ngx_conf_t *configuration_object) {
   ngx_str_t firetail_url = ngx_string("");
   firetail_config->FiretailApiToken = firetail_api_token;
   firetail_config->FiretailUrl = firetail_url;
-  firetail_config->FiretailEnabled = 0;
+  firetail_config->FiretailEnabled = NGX_CONF_UNSET;
 
   return firetail_config;
 }
@@ -49,6 +48,6 @@ void *CreateFiretailConfig(ngx_conf_t *configuration_object) {
 char *InitFiretailMainConfig(ngx_conf_t *configuration_object, void *http_main_config) { return NGX_CONF_OK; }
 
 char *MergeFiretailLocationConfig(ngx_conf_t *cf, void *parent, void *child) {
-  ngx_conf_merge_value(((FiretailConfig *)child)->FiretailEnabled, ((FiretailConfig *)parent)->FiretailEnabled, 0);
+  ngx_conf_merge_value(((FiretailConfig *)child)->FiretailEnabled, ((FiretailConfig *)parent)->FiretailEnabled, 1);
   return NGX_CONF_OK;
 }
