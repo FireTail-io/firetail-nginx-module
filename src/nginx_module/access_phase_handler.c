@@ -1,6 +1,5 @@
 #include <ngx_core.h>
 #include <ngx_http.h>
-#include "access_phase_handler.h"
 #include "filter_context.h"
 #include "firetail_config.h"
 #include "firetail_module.h"

@@ -1,5 +1,4 @@
 #include <ngx_core.h>
-#include <ngx_http.h>
 #include "firetail_config.h"
 
 char *FiretailApiTokenDirectiveCallback(ngx_conf_t *configuration_object, ngx_command_t *command_definition,

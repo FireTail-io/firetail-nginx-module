@@ -1,6 +1,7 @@
 #ifndef FIRETAIL_MODULE_INCLUDED
 #define FIRETAIL_MODULE_INCLUDED
 
+#include <ngx_core.h>
 #include <ngx_http.h>
 
 // The header and body filters of the filter that was added just before ours.
